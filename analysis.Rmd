@@ -9,3 +9,58 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+## Packages
+
+```{r}
+library(deSolve)
+```
+
+## Model
+
+```{r}
+S0
+L10
+L20
+times <- seq(0, 200, by = 1)
+
+out   <- ode(c(S = S0, L1 = L10, L2 = L20),
+             times,
+             function(time, state, pars) {
+               with(as.list(c(state, pars)), {
+                 infections <- beta * A * S
+                 dS  <- gamma1 * L1 + gammaA * A - infections
+                 dL1 <- infections - (gamma1 + sigma1) * L1
+                 dL2 <- delta * A  - (gamma2 + sigma2) * L2
+                 dA  <- sigma1 * L1 + sigma2 * L2 - (gammaA + delta) * A
+                 list(c(dS, dL1, dL2, dA))
+               })
+             },
+             c())
+```
+
+
+```{r}
+LVmod <- function(Time, State, Pars) {
+  with(as.list(c(State, Pars)), {
+    Ingestion    <- rIng  * Prey * Predator
+    GrowthPrey   <- rGrow * Prey * (1 - Prey/K)
+    MortPredator <- rMort * Predator
+
+    dPrey        <- GrowthPrey - Ingestion
+    dPredator    <- Ingestion * assEff - MortPredator
+
+    return(list(c(dPrey, dPredator)))
+  })
+}
+
+pars  <- c(rIng   = 0.2,    # /day, rate of ingestion
+           rGrow  = 1.0,    # /day, growth rate of prey
+           rMort  = 0.2 ,   # /day, mortality rate of predator
+           assEff = 0.5,    # -, assimilation efficiency
+           K      = 10)     # mmol/m3, carrying capacity
+
+yini  <- c(Prey = 1, Predator = 2)
+times <- seq(0, 200, by = 1)
+out   <- ode(yini, times, LVmod, pars)
+```
+
