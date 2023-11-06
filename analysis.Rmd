@@ -19,19 +19,27 @@ library(deSolve)
 ## Functions
 
 ```{r}
+lwd_val <- 2
+```
+
+```{r}
 seq2 <- function(...) seq(..., le = 512)
 ```
 
 ```{r}
-plot2 <- function(..., col = 4) plot(..., type = "l", lwd = 2, col = col)
+plot2 <- function(..., col = 4) plot(..., type = "l", lwd = lwd_val, col = col)
 ```
 
 ```{r}
-lines2 <- function(..., col = 2) lines(..., lwd = 2, col = col)
+lines2 <- function(..., col = 2) lines(..., lwd = lwd_val, col = col)
 ```
 
 ```{r}
-legend2 <- function(...) legend(..., lty = 1, bty = "n")
+legend2 <- function(...) legend(..., lty = 1, lwd = lwd_val, bty = "n")
+```
+
+```{r}
+abline2 <- function(...) abline(..., lwd = lwd_val)
 ```
 
 
@@ -43,8 +51,8 @@ legend2 <- function(...) legend(..., lty = 1, bty = "n")
 * no immunity against TB
 * no mortality
 * constant population size
-* distribution of stay in infected non-disease state follows an exponential
-distribution (see section on parameters)
+* distribution of stay in infected non-disease state ($I$) follows an
+exponential distribution (see section on parameters)
 
 ### Epidemiological framework
 
@@ -55,10 +63,8 @@ distribution (see section on parameters)
 
 * $N$: population size (ind)
 * $\beta$: per capita infectious contact rate (/year/ind)
-* $\gamma$: per capita rate of natural (in absence of treatment) clearance of
-non-diseased (/year)
-* $\delta$: per capita rate of natural (in absence of treatment) clearance of
-diseased (/year)
+* $\gamma$: per capita rate of clearance of non-diseased (/year)
+* $\delta$: per capita rate of clearance of diseased (/year)
 * $\sigma$: per capita rate of developing disease once infected (/year)
 * $p(d)$: probability of successfully treating non-diseased infected
 
@@ -110,15 +116,17 @@ $$
 #### Equilibrium 
 
 $$
-S^* = \frac{(1-\gamma/\sigma)\delta}{(1 - p(d))\beta}N
+S^* = \frac{1+\gamma/\sigma}{(1 - p(d))\beta}\delta N
 $$
 
 $$
-I^* = \frac{(1-p(d))\beta\delta - (1-\gamma/\sigma)\delta^2}{(\sigma+\delta)(1-p(d))\beta}N
+I^* = \frac{(1-p(d))\beta -
+(1+\gamma/\sigma)\delta}{(\sigma+\delta)(1-p(d))\beta}\delta N
 $$
 
 $$
-D^* = \frac{(1-p(d))\beta - (1-\gamma/\sigma)\delta}{(1+\delta/\sigma)(1-p(d))\beta}N
+D^* = \frac{(1-p(d))\beta - (1+\gamma/\sigma)\delta}
+{(1+\delta/\sigma)(1-p(d))\beta}N
 $$
 
 #### Numerical verification
@@ -150,19 +158,62 @@ model <- function(S0, I0, D0, beta, sigma, gamma, delta, p, times) {
 
 The equilibrium values in R:
 
+```{r}
+s_star <- function(gamma, sigma, delta, beta, p, N) {
+  (1 + gamma / sigma) * delta * N / ((1 - p) * beta)
+}
+
+i_star <- function(gamma, sigma, delta, beta, p, N) {
+  N * delta * ((1 - p) * beta - (1 + gamma / sigma) * delta) / 
+    ((1 + delta / sigma) * (1 - p) * beta * sigma)
+}
+
+d_star <- function(gamma, sigma, delta, beta, p, N) {
+  N * ((1 - p) * beta - (1 + gamma / sigma) * delta) / 
+    ((1 + delta / sigma) * (1 - p) * beta)
+}
+```
+
+Let's compare:
+
 ```{r fig.width = 7, fig.height = 5 / 2}
-sims <- model(1e6 - 10, 0, 10,
-      beta  = 1,
-      sigma = 1.15,
-      gamma = .1,
-      delta = .1, p = 0, seq2(0, 50))
+S0 <- 1e6 - 10 # ind
+I0 <- 0 # ind
+D0 <- 10 # ind
+beta <- 1 # /year/ind
+sigma <- 1.15 # /year
+gamma <- .1 # /year
+delta <- .1 # /year
+p <- 0 # in absence of treatment
+
+sims <- model(S0, I0, D0, beta, sigma, gamma, delta, p, seq2(0, 50))
 
 plot3 <- function(...) plot2(..., xlab = "time (years)")
+abline3 <- function(...) abline2(..., col = 2)
+N <- S0 + I0 + D0
+
 opar <- par(mfrow = c(1, 3))
 with(sims, plot3(time, S, ylab = "susceptibles S"))
+abline3(h = s_star(gamma, sigma, delta, beta, p, N))
 with(sims, plot3(time, I, ylab = "infected non-diseased I"))
+abline3(h = i_star(gamma, sigma, delta, beta, p, N))
 with(sims, plot3(time, D, ylab = "diseased D"))
+abline3(h = d_star(gamma, sigma, delta, beta, p, N))
 par(opar)
+```
+
+
+#### Estimating $\beta$, $\gamma$ and $\delta$
+
+```{r}
+sigma_val <- exp_rate(2, .9)
+s_star2 <- function(...) s_star(sigma = sigma_val, p = 0, N = 1)
+i_star2 <- function(...) i_star(sigma = sigma_val, p = 0, N = 1)
+d_star2 <- function(...) d_star(sigma = sigma_val, p = 0, N = 1)
+```
+
+```{r}
+
 ```
 
 
@@ -197,7 +248,7 @@ lines2(ds, tau(ds, K, h) * epsilon(ds, L, l), col = 3)
 
 legend2("topright", legend = c("adherence to treatment", "treatment efficiency",
                                "adherence to treatment x treatment efficiency"),
-        col = c(4, 2, 3), lwd = 2)
+        col = c(4, 2, 3))
 
 abline(h = .5)
 ```
