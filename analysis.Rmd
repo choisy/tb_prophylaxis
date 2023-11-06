@@ -12,55 +12,192 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Packages
 
 ```{r}
+library(tibble)
 library(deSolve)
 ```
 
+## Functions
+
+```{r}
+seq2 <- function(...) seq(..., le = 512)
+```
+
+```{r}
+plot2 <- function(..., col = 4) plot(..., type = "l", lwd = 2, col = col)
+```
+
+```{r}
+lines2 <- function(..., col = 2) lines(..., lwd = 2, col = col)
+```
+
+```{r}
+legend2 <- function(...) legend(..., lty = 1, bty = "n")
+```
+
+
 ## Model
 
+### Assumptions
+
+* frequency-dependence transmission
+* no immunity against TB
+* no mortality
+* constant population size
+* distribution of stay in infected non-disease state follows an exponential
+distribution (see section on parameters)
+
+### Epidemiological framework
+
+<div style="text-align:center"><img src ="SID.png" width="200"/></div>
+
+#### Parameters
+
+
+* $N$: population size (ind)
+* $\beta$: per capita infectious contact rate (/year/ind)
+* $\gamma$: per capita rate of natural (in absence of treatment) clearance of
+non-diseased (/year)
+* $\delta$: per capita rate of natural (in absence of treatment) clearance of
+diseased (/year)
+* $\sigma$: per capita rate of developing disease once infected (/year)
+* $p(d)$: probability of successfully treating non-diseased infected
+
+**Note:** we assume that the duration of stay in the infected non-disease state
+follows an exponential distribution. This means that we can express the rate as
+a function of the proportion $q$ of people we expect to develop disease before
+$x$ years:
+
+$$
+\sigma = -\frac{\log(1 - q)}{x}
+$$
+
 ```{r}
-S0
-L10
-L20
-times <- seq(0, 200, by = 1)
-
-out   <- ode(c(S = S0, L1 = L10, L2 = L20),
-             times,
-             function(time, state, pars) {
-               with(as.list(c(state, pars)), {
-                 infections <- beta * A * S
-                 dS  <- gamma1 * L1 + gammaA * A - infections
-                 dL1 <- infections - (gamma1 + sigma1) * L1
-                 dL2 <- delta * A  - (gamma2 + sigma2) * L2
-                 dA  <- sigma1 * L1 + sigma2 * L2 - (gammaA + delta) * A
-                 list(c(dS, dL1, dL2, dA))
-               })
-             },
-             c())
-```
-
-
-```{r}
-LVmod <- function(Time, State, Pars) {
-  with(as.list(c(State, Pars)), {
-    Ingestion    <- rIng  * Prey * Predator
-    GrowthPrey   <- rGrow * Prey * (1 - Prey/K)
-    MortPredator <- rMort * Predator
-
-    dPrey        <- GrowthPrey - Ingestion
-    dPredator    <- Ingestion * assEff - MortPredator
-
-    return(list(c(dPrey, dPredator)))
-  })
+exp_rate <- function(x, q) {
+  - log(1 - q) / x
 }
-
-pars  <- c(rIng   = 0.2,    # /day, rate of ingestion
-           rGrow  = 1.0,    # /day, growth rate of prey
-           rMort  = 0.2 ,   # /day, mortality rate of predator
-           assEff = 0.5,    # -, assimilation efficiency
-           K      = 10)     # mmol/m3, carrying capacity
-
-yini  <- c(Prey = 1, Predator = 2)
-times <- seq(0, 200, by = 1)
-out   <- ode(yini, times, LVmod, pars)
 ```
 
+For 90% of infected people developing the disease within 2 years, we then want
+$\sigma$ to be equal to:
+
+```{r}
+exp_rate(2, .9)
+```
+
+We'll how we can derive values of the other parameters from equilibrium values
+(see section on equilibrium below).
+
+#### Epidemiological dynamics:
+
+$$
+\frac{dS}{dt} = \gamma I + \delta D - (1-p(d))\beta\frac{D}{N}S
+$$
+
+$$
+\frac{dI}{dt} = (1-p(d))\beta\frac{D}{N}S - (\gamma + \sigma) I
+$$
+
+$$
+\frac{dD}{dt} = \sigma I - \delta D
+$$
+
+#### Constant population size:
+
+$$
+N = S + I + D
+$$
+
+#### Equilibrium 
+
+$$
+S^* = \frac{(1-\gamma/\sigma)\delta}{(1 - p(d))\beta}N
+$$
+
+$$
+I^* = \frac{(1-p(d))\beta\delta - (1-\gamma/\sigma)\delta^2}{(\sigma+\delta)(1-p(d))\beta}N
+$$
+
+$$
+D^* = \frac{(1-p(d))\beta - (1-\gamma/\sigma)\delta}{(1+\delta/\sigma)(1-p(d))\beta}N
+$$
+
+#### Numerical verification
+
+The model in R:
+
+```{r}
+model <- function(S0, I0, D0, beta, sigma, gamma, delta, p, times) {
+  N <- S0 + I0 + D0
+  ode(
+    c(S = S0, I = I0, D = D0),
+    times,
+    function(time, state, pars) {
+      with(as.list(c(state, pars)), {
+        infections <- (1 - p) * beta * D * S / N
+        recoveries <- delta * D
+        dS <- gamma * I  + recoveries - infections
+        dI <- infections - (sigma + gamma) * I
+        dD <- sigma * I - recoveries
+        list(c(dS, dI, dD))
+      })
+    },
+    c(beta = beta, sigma = sigma, gamma = gamma, delta = delta, p = p)
+  ) |>
+    as.data.frame() |> 
+    as_tibble()
+}
+```
+
+The equilibrium values in R:
+
+```{r fig.width = 7, fig.height = 5 / 2}
+sims <- model(1e6 - 10, 0, 10,
+      beta  = 1,
+      sigma = 1.15,
+      gamma = .1,
+      delta = .1, p = 0, seq2(0, 50))
+
+plot3 <- function(...) plot2(..., xlab = "time (years)")
+opar <- par(mfrow = c(1, 3))
+with(sims, plot3(time, S, ylab = "susceptibles S"))
+with(sims, plot3(time, I, ylab = "infected non-diseased I"))
+with(sims, plot3(time, D, ylab = "diseased D"))
+par(opar)
+```
+
+
+## Duration of prophylactic treatment
+
+```{r}
+tau <- function(d, K, h) {
+  K^h / (K^h + d^h)
+}
+```
+
+```{r}
+epsilon <- function(d, L, l) {
+  d^l / (L^l + d^l)
+}
+```
+
+
+```{r}
+ds <- seq2(0, 180) # days
+K <- 45 # days
+h <- 4
+L <- 90 # days
+l <- 1
+
+plot2(ds, tau(ds, K, h), xlab = "duration of treatment (days)",
+      ylab = "probability")
+
+lines2(ds, epsilon(ds, L, l))
+
+lines2(ds, tau(ds, K, h) * epsilon(ds, L, l), col = 3)
+
+legend2("topright", legend = c("adherence to treatment", "treatment efficiency",
+                               "adherence to treatment x treatment efficiency"),
+        col = c(4, 2, 3), lwd = 2)
+
+abline(h = .5)
+```
