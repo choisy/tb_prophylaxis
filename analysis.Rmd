@@ -47,60 +47,39 @@ abline2 <- function(...) abline(..., lwd = lwd_val)
 
 ### Assumptions
 
-* frequency-dependence transmission
-* no immunity against TB
-* no mortality
 * constant population size
-* distribution of stay in infected non-disease state ($I$) follows an
-exponential distribution (see section on parameters)
+* frequency-dependence transmission
+* no mortality
+* no immunity against TB
 
 ### Epidemiological framework
 
-<div style="text-align:center"><img src ="SID.png" width="200"/></div>
+<div style="text-align:center"><img src ="SID.png" width="160"/></div>
 
 #### Parameters
 
 
 * $N$: population size (ind)
 * $\beta$: per capita infectious contact rate (/year/ind)
-* $\gamma$: per capita rate of clearance of non-diseased (/year)
-* $\delta$: per capita rate of clearance of diseased (/year)
+* $\gamma$: per capita rate of clearance of non-diseased, either naturally or
+from whatever treatment policy currently in place (/year)
+* $\delta$: per capita rate of clearance of diseased, either naturally or
+from whatever treatment policy currently in place (/year)
 * $\sigma$: per capita rate of developing disease once infected (/year)
-* $p(d)$: probability of successfully treating non-diseased infected
+* $q$: proportion of treated diseased that do not clear the bacillus
+* $\pi(d)$: per capita rate of clearance of non-diseased, due to prophylactic
+treatment (/year). Depends the on duration $d$ of prophylactic treatment (see
+below)
 
-**Note:** we assume that the duration of stay in the infected non-disease state
-follows an exponential distribution. This means that we can express the rate as
-a function of the proportion $q$ of people we expect to develop disease before
-$x$ years:
-
-$$
-\sigma = -\frac{\log(1 - q)}{x}
-$$
-
-```{r}
-exp_rate <- function(x, q) {
-  - log(1 - q) / x
-}
-```
-
-For 90% of infected people developing the disease within 2 years, we then want
-$\sigma$ to be equal to:
-
-```{r}
-exp_rate(2, .9)
-```
-
-We'll how we can derive values of the other parameters from equilibrium values
-(see section on equilibrium below).
 
 #### Epidemiological dynamics:
 
 $$
-\frac{dS}{dt} = \gamma I + \delta D - (1-p(d))\beta\frac{D}{N}S
+\frac{dS}{dt} = (1-q)\delta D + (\gamma + \pi(d)) I - \beta\frac{D}{N}S
 $$
 
 $$
-\frac{dI}{dt} = (1-p(d))\beta\frac{D}{N}S - (\gamma + \sigma) I
+\frac{dI}{dt} = \beta\frac{D}{N}S + q\delta D - (\sigma + \gamma + \pi(d)) I
 $$
 
 $$
@@ -116,40 +95,40 @@ $$
 #### Equilibrium 
 
 $$
-S^* = \frac{1+\gamma/\sigma}{(1 - p(d))\beta}\delta N
+D^* = \frac{\beta - \left(1 - q + \frac{\gamma + \pi}{\sigma}\right)\delta}
+{\left(1 + \frac{\delta}{\sigma}\right)\beta}N
+$$
+
+
+$$
+I^* = \frac{\delta}{\sigma}D^*
 $$
 
 $$
-I^* = \frac{(1-p(d))\beta -
-(1+\gamma/\sigma)\delta}{(\sigma+\delta)(1-p(d))\beta}\delta N
+S^* = N - I^* - D^*
 $$
 
-$$
-D^* = \frac{(1-p(d))\beta - (1+\gamma/\sigma)\delta}
-{(1+\delta/\sigma)(1-p(d))\beta}N
-$$
 
 #### Numerical verification
 
 The model in R:
 
 ```{r}
-model <- function(S0, I0, D0, beta, sigma, gamma, delta, p, times) {
+model <- function(S0, I0, D0, beta, sigma, gamma, delta, q, pi, times) {
   N <- S0 + I0 + D0
   ode(
     c(S = S0, I = I0, D = D0),
     times,
     function(time, state, pars) {
       with(as.list(c(state, pars)), {
-        infections <- (1 - p) * beta * D * S / N
-        recoveries <- delta * D
-        dS <- gamma * I  + recoveries - infections
-        dI <- infections - (sigma + gamma) * I
-        dD <- sigma * I - recoveries
+        infections <- beta * D * S / N
+        dS <- (1 - q) * delta * D + (gamma + pi) * I - infections
+        dI <- infections + q * delta * D - (sigma + gamma + pi) * I
+        dD <- sigma * I - delta * D
         list(c(dS, dI, dD))
       })
     },
-    c(beta = beta, sigma = sigma, gamma = gamma, delta = delta, p = p)
+    c(beta = beta, sigma = sigma, gamma = gamma, delta = delta, q = q, pi = pi)
   ) |>
     as.data.frame() |> 
     as_tibble()
@@ -159,18 +138,18 @@ model <- function(S0, I0, D0, beta, sigma, gamma, delta, p, times) {
 The equilibrium values in R:
 
 ```{r}
-s_star <- function(gamma, sigma, delta, beta, p, N) {
-  (1 + gamma / sigma) * delta * N / ((1 - p) * beta)
+d_star <- function(gamma, sigma, delta, beta, q, pi, N) {
+  N * (beta - delta * (1 - q + (gamma + pi) / sigma)) /
+    (beta * (1 + delta / sigma))
 }
 
-i_star <- function(gamma, sigma, delta, beta, p, N) {
-  N * delta * ((1 - p) * beta - (1 + gamma / sigma) * delta) / 
-    ((1 + delta / sigma) * (1 - p) * beta * sigma)
+i_star <- function(gamma, sigma, delta, beta, q, pi, N) {
+  delta * d_star(gamma, sigma, delta, beta, q, pi, N) / sigma
 }
 
-d_star <- function(gamma, sigma, delta, beta, p, N) {
-  N * ((1 - p) * beta - (1 + gamma / sigma) * delta) / 
-    ((1 + delta / sigma) * (1 - p) * beta)
+s_star <- function(gamma, sigma, delta, beta, q, pi, N) {
+  N - i_star(gamma, sigma, delta, beta, q, pi, N) -
+    d_star(gamma, sigma, delta, beta, q, pi, N)
 }
 ```
 
@@ -184,9 +163,10 @@ beta <- 1 # /year/ind
 sigma <- 1.15 # /year
 gamma <- .1 # /year
 delta <- .1 # /year
-p <- 0 # in absence of treatment
+q <- .5
+pi <- 0 # in absence of prophylaxis
 
-sims <- model(S0, I0, D0, beta, sigma, gamma, delta, p, seq2(0, 50))
+sims <- model(S0, I0, D0, beta, sigma, gamma, delta, q, pi, seq2(0, 50))
 
 plot3 <- function(...) plot2(..., xlab = "time (years)")
 abline3 <- function(...) abline2(..., col = 2)
@@ -194,26 +174,140 @@ N <- S0 + I0 + D0
 
 opar <- par(mfrow = c(1, 3))
 with(sims, plot3(time, S, ylab = "susceptibles S"))
-abline3(h = s_star(gamma, sigma, delta, beta, p, N))
+abline3(h = s_star(gamma, sigma, delta, beta, q, pi, N))
 with(sims, plot3(time, I, ylab = "infected non-diseased I"))
-abline3(h = i_star(gamma, sigma, delta, beta, p, N))
+abline3(h = i_star(gamma, sigma, delta, beta, q, pi, N))
 with(sims, plot3(time, D, ylab = "diseased D"))
-abline3(h = d_star(gamma, sigma, delta, beta, p, N))
+abline3(h = d_star(gamma, sigma, delta, beta, q, pi, N))
+par(opar)
+```
+
+```{r fig.width = 7, fig.height = 5 / 2}
+S0 <- 1e6 - 1500 # ind
+I0 <- 0 # ind
+D0 <- 1500 # ind
+beta <- .7 # /year/ind
+sigma <- 1.15 # /year
+gamma <- .1 # /year
+delta <- 1.1 # /year
+q <- .5
+pi <- 0 # in absence of prophylaxis
+
+sims <- model(S0, I0, D0, beta, sigma, gamma, delta, q, pi, seq2(0, 1000))
+
+plot3 <- function(...) plot2(..., xlab = "time (years)")
+abline3 <- function(...) abline2(..., col = 2)
+N <- S0 + I0 + D0
+
+opar <- par(mfrow = c(1, 3))
+with(sims, plot3(time, S, ylab = "susceptibles S"))
+abline3(h = s_star(gamma, sigma, delta, beta, q, pi, N))
+with(sims, plot3(time, I, ylab = "infected non-diseased I"))
+abline3(h = i_star(gamma, sigma, delta, beta, q, pi, N))
+with(sims, plot3(time, D, ylab = "diseased D"))
+abline3(h = d_star(gamma, sigma, delta, beta, q, pi, N))
 par(opar)
 ```
 
 
-#### Estimating $\beta$, $\gamma$ and $\delta$
+#### Estimating / assessing parameters
+
+If $p\%$ of those $I$ who will become $D$ within $E$ years, then the $\sigma$
+rate should read
+
+$$
+\sigma = -\frac{\log(1 - p)}{E}
+$$
 
 ```{r}
-sigma_val <- exp_rate(2, .9)
-s_star2 <- function(...) s_star(sigma = sigma_val, p = 0, N = 1)
-i_star2 <- function(...) i_star(sigma = sigma_val, p = 0, N = 1)
-d_star2 <- function(...) d_star(sigma = sigma_val, p = 0, N = 1)
+sigma_rate <- function(E, p) {
+  - log(1 - p) / E
+}
+```
+
+For 90% of infected people developing the disease within 2 years, we then want
+$\sigma$ to be equal to:
+
+```{r}
+sigma_rate(2, .9) # /year
+```
+
+If $g$ (typically $3$ to $5\%$) is the proportion of $I$ that will ultimately
+move to $D$, then, we have
+
+$$
+\frac{\sigma}{\sigma + \gamma} = g
+$$
+
+which leads to this expression for $\gamma$:
+
+$$
+\gamma = \frac{1 - g}{g}\sigma
+$$
+If $j\%$ of those sick and treated leaves the $D$ compartment within $M$ years,
+then, the $\delta$ parameter should read:
+
+$$
+\delta = -\frac{\log(1 - j)}{M}
+$$
+
+We are left with two parameters to estimate ($\beta$ and $q$) that we can
+estimate from observed values of $I^*$ (between 10 and 40%) and $D^*$ (between
+0.15 and 0.30%). In R, this gives the following function:
+
+```{r}
+logit <- function(p) {
+  log(p / (1 - p))
+}
 ```
 
 ```{r}
+ilogit <- function(x) {
+  exp(x) / (1 + exp(x))
+}
+```
 
+```{r}
+dpois2 <- function(...) dpois(..., log = TRUE)
+```
+
+
+```{r}
+f <- function(
+    p = .9, E = 2, # p% of people developing disease doing so within E years
+    j = .8, M = 2 / 12, # j% of people recovering within M years
+    g = .04, # proportion of I that ultimately move to D
+    I = .25, # prevalence of infected (but not diseased) people
+    D = .0043, # prevalence of diseased people
+    N = 1e6) {
+  
+  sigma <- - log(1 - p) / E
+#  delta <- - log(1 - j) / M
+  delta <- sigma * I / D
+  gamma <- sigma * (1 - g) / g
+  
+  I <- round(I * N)
+  D <- round(D * N)
+ 
+  x <- c(log(1), logit(.15))
+   
+  mLL <- function(x) {
+    - dpois2(I, i_star(gamma, sigma, delta, exp(x[1]), ilogit(x[2]), 0, N)) -
+      dpois2(D, d_star(gamma, sigma, delta, exp(x[1]), ilogit(x[2]), 0, N))
+  }
+ 
+#  mLL(c(log(1), logit(.15)))
+  
+  out <- optim(c(log(1), logit(.15)), mLL)$par
+  
+  c(sigma = sigma,
+    gamma = gamma,
+    delta = delta,
+    beta  = exp(out[1]),
+    q     = ilogit(out[2]))
+}
+
+f()
 ```
 
 
