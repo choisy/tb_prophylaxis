@@ -182,22 +182,78 @@ abline3(h = d_star(gamma, sigma, delta, beta, q, pi, N))
 par(opar)
 ```
 
+#### Estimating / assessing parameters
+
+If $p\%$ of those $I$ who will become $D$ within $E$ years, then the $\sigma$
+rate should read
+
+$$
+\sigma = -\frac{\log(1 - p)}{E}
+$$
+
+If $x$ (typically $3$ to $5\%$) is the proportion of $I$ that will ultimately
+move to $D$, then, we have
+
+$$
+\frac{\sigma}{\sigma + \gamma} = x
+$$
+
+which leads to this expression for $\gamma$:
+
+$$
+\gamma = \frac{1 - x}{x}\sigma
+$$
+
+We are left with two parameters to estimate ($\beta$ and $\delta$) that we can
+estimate from observed values of $I^*$ (between 10 and 40%) and $D^*$ (between
+0.15 and 0.30%). First $\delta$:
+
+$$
+\delta = \sigma\frac{I^*}{D^*}
+$$
+
+And $\beta$:
+
+$$
+\beta = \frac{(1 - q)\delta D^* + \gamma I^*}{(N - I^* - D^*)D^*}N
+$$
+In R:
+
+```{r}
+parameters_values <- function(
+    p = .9, E = 2, # p% of people developing disease doing so within E years
+    x = .04, # proportion of I that will become D (3 to 5%)
+    I = .25, # prevalence of I (between 10 and 40%)
+    D = 450 / 100000, # prevalence of D (between 150 and 300 / 100,000)
+    q = .15 # proportion of "recovered" D that actually go to I instead of S
+  ) {
+  sigma <- - log(1 - p) / E
+  gamma <- sigma * (1 - x) / x
+  delta <- sigma * I / D
+  beta <- ((1 - q) * delta * D + gamma * I) / ((1 - I - D) * D)
+  
+  c(beta = beta, gamma = gamma, sigma = sigma, delta = delta)
+}
+```
+
+```{r}
+parameters_values()
+```
+
 ```{r fig.width = 7, fig.height = 5 / 2}
-S0 <- 1e6 - 1500 # ind
+q <- .15
+D0 <- 10 # ind
+S0 <- 1e6 - D0 # ind
 I0 <- 0 # ind
-D0 <- 1500 # ind
-beta <- .7 # /year/ind
-sigma <- 1.15 # /year
-gamma <- .1 # /year
-delta <- 1.1 # /year
-q <- .5
-pi <- 0 # in absence of prophylaxis
 
-sims <- model(S0, I0, D0, beta, sigma, gamma, delta, q, pi, seq2(0, 1000))
-
-plot3 <- function(...) plot2(..., xlab = "time (years)")
-abline3 <- function(...) abline2(..., col = 2)
 N <- S0 + I0 + D0
+parms <- parameters_values(q = q)
+beta  <- parms["beta"] # /year/ind
+sigma <- parms["sigma"] # /year
+gamma <- parms["gamma"] # /year
+delta <- parms["delta"] # /year
+
+sims <- model(S0, I0, D0, beta, sigma, gamma, delta, q, 0, seq2(0, 5))
 
 opar <- par(mfrow = c(1, 3))
 with(sims, plot3(time, S, ylab = "susceptibles S"))
@@ -209,106 +265,6 @@ abline3(h = d_star(gamma, sigma, delta, beta, q, pi, N))
 par(opar)
 ```
 
-
-#### Estimating / assessing parameters
-
-If $p\%$ of those $I$ who will become $D$ within $E$ years, then the $\sigma$
-rate should read
-
-$$
-\sigma = -\frac{\log(1 - p)}{E}
-$$
-
-```{r}
-sigma_rate <- function(E, p) {
-  - log(1 - p) / E
-}
-```
-
-For 90% of infected people developing the disease within 2 years, we then want
-$\sigma$ to be equal to:
-
-```{r}
-sigma_rate(2, .9) # /year
-```
-
-If $g$ (typically $3$ to $5\%$) is the proportion of $I$ that will ultimately
-move to $D$, then, we have
-
-$$
-\frac{\sigma}{\sigma + \gamma} = g
-$$
-
-which leads to this expression for $\gamma$:
-
-$$
-\gamma = \frac{1 - g}{g}\sigma
-$$
-If $j\%$ of those sick and treated leaves the $D$ compartment within $M$ years,
-then, the $\delta$ parameter should read:
-
-$$
-\delta = -\frac{\log(1 - j)}{M}
-$$
-
-We are left with two parameters to estimate ($\beta$ and $q$) that we can
-estimate from observed values of $I^*$ (between 10 and 40%) and $D^*$ (between
-0.15 and 0.30%). In R, this gives the following function:
-
-```{r}
-logit <- function(p) {
-  log(p / (1 - p))
-}
-```
-
-```{r}
-ilogit <- function(x) {
-  exp(x) / (1 + exp(x))
-}
-```
-
-```{r}
-dpois2 <- function(...) dpois(..., log = TRUE)
-```
-
-
-```{r}
-f <- function(
-    p = .9, E = 2, # p% of people developing disease doing so within E years
-    j = .8, M = 2 / 12, # j% of people recovering within M years
-    g = .04, # proportion of I that ultimately move to D
-    I = .25, # prevalence of infected (but not diseased) people
-    D = .0043, # prevalence of diseased people
-    N = 1e6) {
-  
-  sigma <- - log(1 - p) / E
-#  delta <- - log(1 - j) / M
-  delta <- sigma * I / D
-  gamma <- sigma * (1 - g) / g
-  
-  I <- round(I * N)
-  D <- round(D * N)
- 
-  x <- c(log(1), logit(.15))
-   
-  mLL <- function(x) {
-    - dpois2(I, i_star(gamma, sigma, delta, exp(x[1]), ilogit(x[2]), 0, N)) -
-      dpois2(D, d_star(gamma, sigma, delta, exp(x[1]), ilogit(x[2]), 0, N))
-  }
- 
-#  mLL(c(log(1), logit(.15)))
-  
-  out <- optim(c(log(1), logit(.15)), mLL)$par
-  
-  c(sigma = sigma,
-    gamma = gamma,
-    delta = delta,
-    beta  = exp(out[1]),
-    q     = ilogit(out[2]))
-}
-
-f()
-```
 
 
 ## Duration of prophylactic treatment
