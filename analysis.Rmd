@@ -266,8 +266,56 @@ par(opar)
 ```
 
 
+## Prophylaxis
 
-## Duration of prophylactic treatment
+Let's assume that the probability that somebody stops his/her treatment
+increases with the number of days s/he's been taken the treatment:
+
+$$
+p_1(t) = \theta_1\frac{t^{h_1}}{K_1^{h_1} + t^{h_1}}
+$$
+But that it also increases with the number days left in the treatment:
+
+$$
+p_2(t) = \theta_2\frac{(T - t)^{h_2}}{K_2^{h_2} + (T - t)^{h_2}}
+$$
+where $T$ is the prescribed duration of treatment. By combining this 2 effects,
+we would have something like:
+
+$$
+p(t, T) = \theta\frac{t^{h_1} (T - t)^{h_2}}
+                     {(K_1^{h_1} + t^{h_1})(K_2^{h_2} + (T - t)^{h_2})}
+$$
+And the probability that somebody stops his/her treatment at time $t$ is
+
+$$
+P(t,T) = p(t,T)\prod_{x=0}^{t-1}(1 - p(x,T))
+$$
+And the probability distribution of the actual duration of treatment would look
+like:
+
+$$
+d(t,T) = \frac{P(t,T)}{\sum_{t = 0}^T P(t,T)}
+$$
+We can assume that the treatment efficiency as a function of the actual duration
+of treatment also follows a Hill equation:
+
+$$
+
+$$
+
+
+In the model, recovery from $I$ thanks to prophylaxis occurs at a rate $\pi(d)$
+that depends on the duration $d$ of treatment. This rate can be decomposed as
+so:
+
+$$
+\pi(d) = \theta\tau(d) \varepsilon(d)
+$$
+where $\theta$ is the proportion of infections that can be identified through
+contact tracing (*e.g.* household or workplace transmission) and thus be
+proposed a prophylactic treatment (this parameter may also integrate the
+probability that those who are proposed the prophylactic treatment accept it), $\tau(d)$ the probability 
 
 ```{r}
 tau <- function(d, K, h) {

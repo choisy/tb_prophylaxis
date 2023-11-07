@@ -569,8 +569,44 @@ abline3(h = d_star(gamma, sigma, delta, beta, q, pi, N))</code></pre>
 </div>
 </div>
 </div>
-<div id="duration-of-prophylactic-treatment" class="section level2">
-<h2>Duration of prophylactic treatment</h2>
+<div id="prophylaxis" class="section level2">
+<h2>Prophylaxis</h2>
+<p>Let’s assume that the probability that somebody stops his/her
+treatment increases with the number of days s/he’s been taken the
+treatment:</p>
+<p><span class="math display">\[
+p_1(t) = \theta_1\frac{t^{h_1}}{K_1^{h_1} + t^{h_1}}
+\]</span> But that it also increases with the number days left in the
+treatment:</p>
+<p><span class="math display">\[
+p_2(t) = \theta_2\frac{(T - t)^{h_2}}{K_2^{h_2} + (T - t)^{h_2}}
+\]</span> where <span class="math inline">\(T\)</span> is the prescribed
+duration of treatment. By combining this 2 effects, we would have
+something like:</p>
+<p><span class="math display">\[
+p(t, T) = \theta\frac{t^{h_1} (T - t)^{h_2}}
+                     {(K_1^{h_1} + t^{h_1})(K_2^{h_2} + (T - t)^{h_2})}
+\]</span> And the probability that somebody stops his/her treatment at
+time <span class="math inline">\(t\)</span> is</p>
+<p><span class="math display">\[
+P(t,T) = p(t,T)\prod_{x=0}^{t-1}(1 - p(x,T))
+\]</span> And the probability distribution of the actual duration of
+treatment would look like:</p>
+<p><span class="math display">\[
+d(t,T) = \frac{P(t,T)}{\sum_{t = 0}^TP(t,T)}
+\]</span></p>
+<p>In the model, recovery from <span class="math inline">\(I\)</span>
+thanks to prophylaxis occurs at a rate <span class="math inline">\(\pi(d)\)</span> that depends on the duration <span class="math inline">\(d\)</span> of treatment. This rate can be
+decomposed as so:</p>
+<p><span class="math display">\[
+\pi(d) = \theta\tau(d) \varepsilon(d)
+\]</span> where <span class="math inline">\(\theta\)</span> is the
+proportion of infections that can be identified through contact tracing
+(<em>e.g.</em> household or workplace transmission) and thus be proposed
+a prophylactic treatment (this parameter may also integrate the
+probability that those who are proposed the prophylactic treatment
+accept it), <span class="math inline">\(\tau(d)\)</span> the
+probability</p>
 <pre class="r"><code>tau &lt;- function(d, K, h) {
   K^h / (K^h + d^h)
 }</code></pre>
