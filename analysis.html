@@ -696,8 +696,13 @@ the proposed prophylactic treatment on the number <span class="math inline">\(D*
 D^*(d) = \frac{\beta - (1 - q + (\gamma + \pi(d)) / \sigma)\delta}
 {(1 + \delta / \sigma)\beta}N
 \]</span> In R:</p>
-<pre class="r"><code>1</code></pre>
-<pre><code>## [1] 1</code></pre>
+<pre class="r"><code>tb_cases &lt;- function(tau, d, Y, U, u, treatment_duration, theta1, theta2, h1,
+                     h2, K1, K2, xi, k, H, sigma, gamma, delta, beta, q, N) {
+  phis &lt;- durations(treatment_duration, theta1, theta2, h1, h2, K1, K2)
+  chi &lt;- tau * uptake(d, Y, U, u) * efficiency(phis, xi, k, H)
+  pis &lt;- chi * (sigma + gamma) / (1 - chi)
+  d_star(gamma, sigma, delta, beta, q, pis, N)
+}</code></pre>
 </div>
 </div>
 

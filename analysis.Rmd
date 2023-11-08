@@ -434,6 +434,13 @@ $$
 In R:
 
 ```{r}
-1
+tb_cases <- function(tau, d, Y, U, u, treatment_duration, theta1, theta2, h1,
+                     h2, K1, K2, xi, k, H, sigma, gamma, delta, beta, q, N) {
+  phis <- durations(treatment_duration, theta1, theta2, h1, h2, K1, K2)
+  chi <- tau * uptake(d, Y, U, u) * efficiency(phis, xi, k, H)
+  pis <- chi * (sigma + gamma) / (1 - chi)
+  d_star(gamma, sigma, delta, beta, q, pis, N)
+}
 ```
+
 
