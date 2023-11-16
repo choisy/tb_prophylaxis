@@ -454,7 +454,8 @@ tb_cases <- function(
   x = .04, # proportion of I that will become D (3 to 5%)
   I = .25, # prevalence of I (between 10 and 40%)
   D = 450 / 100000, # prevalence of D (between 150 and 300 / 100,000)
-  q = .15) {# proportion of "recovered" D that actually goes to I instead of S
+  q = .15, # proportion of "recovered" D that actually goes to I instead of S
+  N = 1e6) { # population size
 
   parms <- parameters_values(p, E, x, I, D, q)
   sigma <- parms["sigma"]
@@ -471,8 +472,9 @@ tb_cases <- function(
 
 ```{r}
 xs <- 1:100
-ys <- map_dbl(xs, ~ fff(treatment_duration = .x))
-plot2(xs, ys)
+ys <- map_dbl(xs, ~ tb_cases(treatment_duration = .x))
+plot2(xs, ys, xlab = "duration of proposed treatment (days)",
+      ylab = "TB prevalence (per 1,000,000)")
 ```
 
 
