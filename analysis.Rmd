@@ -15,6 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tibble)
 library(deSolve)
 library(purrr)
+library(dplyr)
 ```
 
 ## Functions
@@ -434,13 +435,44 @@ $$
 In R:
 
 ```{r}
-tb_cases <- function(tau, d, Y, U, u, treatment_duration, theta1, theta2, h1,
-                     h2, K1, K2, xi, k, H, sigma, gamma, delta, beta, q, N) {
+tb_cases <- function(
+  tau = .5,
+  treatment_duration = 30,
+  theta1 = .8,
+  h1 = 3,
+  K1 = 20,
+  theta2 = .1,
+  h2 = 3,
+  K2 = 20,
+  Y = 1,
+  U = 15,
+  u = 4,
+  xi = 1,
+  k = 1,
+  H = 10,
+  p = .9, E = 2, # p% of people developing disease doing so within E years
+  x = .04, # proportion of I that will become D (3 to 5%)
+  I = .25, # prevalence of I (between 10 and 40%)
+  D = 450 / 100000, # prevalence of D (between 150 and 300 / 100,000)
+  q = .15) {# proportion of "recovered" D that actually goes to I instead of S
+
+  parms <- parameters_values(p, E, x, I, D, q)
+  sigma <- parms["sigma"]
+  gamma <- parms["gamma"]
+  
   phis <- durations(treatment_duration, theta1, theta2, h1, h2, K1, K2)
-  chi <- tau * uptake(d, Y, U, u) * efficiency(phis, xi, k, H)
+  d <- with(phis, sum(x * y))
+  chi <- tau * uptake(d, Y, U, u) * efficiency(d, xi, k, H)
   pis <- chi * (sigma + gamma) / (1 - chi)
-  d_star(gamma, sigma, delta, beta, q, pis, N)
+  
+  d_star(gamma, sigma, parms["delta"], parms["beta"], q, pis, N)
 }
+```
+
+```{r}
+xs <- 1:100
+ys <- map_dbl(xs, ~ fff(treatment_duration = .x))
+plot2(xs, ys)
 ```
 
 
