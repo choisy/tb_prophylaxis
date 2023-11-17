@@ -359,14 +359,6 @@ display: none;
 library(deSolve)
 library(purrr)
 library(dplyr)</code></pre>
-<pre><code>## 
-## Attaching package: &#39;dplyr&#39;</code></pre>
-<pre><code>## The following objects are masked from &#39;package:stats&#39;:
-## 
-##     filter, lag</code></pre>
-<pre><code>## The following objects are masked from &#39;package:base&#39;:
-## 
-##     intersect, setdiff, setequal, union</code></pre>
 </div>
 <div id="functions" class="section level2">
 <h2>Functions</h2>
@@ -623,12 +615,13 @@ p(t, d) = \theta_1\theta_2\frac{t^{h_1} (d - t)^{h_2}}
 <p>in which the second effect could be cancelled by simply setting <span class="math inline">\(\theta_2 = 2\)</span> and <span class="math inline">\(h_2 = 0\)</span>. From this we can express the
 probability that somebody stops his/her treatment <strong>at time <span class="math inline">\(t\)</span></strong> as</p>
 <p><span class="math display">\[
-P(t,d) = p(t,d)\prod_{x=0}^{t-1}(1 - p(x,d))
+P(t,d) = p(t,d)\prod_{x=0}^{{}^{-}t}(1 - p(x,d))^{dx}
 \]</span> The probability distribution of the actual durations of
 treatment can then be expressed by:</p>
 <p><span class="math display">\[
-\varphi(t,d) = \frac{P(t,d)}{\sum_{t = 0}^d P(t,d)}
-\]</span> In R:</p>
+\varphi(t,d) = \frac{P(t,d)}{\int_{0}^d P(x,d)dx}
+\]</span></p>
+<p>In R:</p>
 <pre class="r"><code>p1 &lt;- function(t, theta1, h1, K1) {
   theta1 * t^h1 / (K1^h1 + t^h1)
 }

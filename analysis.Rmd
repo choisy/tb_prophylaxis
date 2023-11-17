@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Packages
 
-```{r}
+```{r message = FALSE}
 library(tibble)
 library(deSolve)
 library(purrr)
@@ -328,14 +328,15 @@ in which the second effect could be cancelled by simply setting $\theta_2 = 2$
 and $h_2 = 0$. From this we can express the probability that somebody stops his/her treatment **at time $t$** as
 
 $$
-P(t,d) = p(t,d)\prod_{x=0}^{t-1}(1 - p(x,d))
+P(t,d) = p(t,d)\prod_{x=0}^{{}^{-}t}(1 - p(x,d))^{dx}
 $$
 The probability distribution of the actual durations of treatment can then be
 expressed by:
 
 $$
-\varphi(t,d) = \frac{P(t,d)}{\sum_{t = 0}^d P(t,d)}
+\varphi(t,d) = \frac{P(t,d)}{\int_{0}^d P(x,d)dx}
 $$
+
 In R:
 
 ```{r}
