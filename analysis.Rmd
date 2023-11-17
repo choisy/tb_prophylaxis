@@ -1,5 +1,5 @@
 ---
-title: "TB prophylaxis"
+title: "Optimal proposed duration of a TB prophylactic treatment"
 output: html_document
 editor_options: 
   chunk_output_type: console
@@ -8,6 +8,63 @@ editor_options:
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
+## Overview
+
+### Context and question
+The goal here is to reduce TB prevalence in the population by proposing people
+recently exposed to a confirmed TB cases a prophylactic treatment of a given
+duration. The shorter the proposed duration, the lower the efficacy of the
+treatment but, also, most likely, the higher the uptake rate. The question then
+is whether a higher uptake rate can epidemiologically (over-)compensate at the
+population level a lower efficacy of the treatment at the individual level. If
+yes, then we are also interested in knowing what is the proposed duration of the
+treatment that would lead to the lowest TB prevalence in the population.
+
+### Method
+
+#### Epidemiological model
+We start by developing a simple 5-parameters epidemiological model of TB that
+consider 3 clinical status: (i) susceptible ($S$), (ii) infected and neither
+sick nor infectious ($I$), (iii) sick and infectious ($D$) in which people can
+transit between $S$ and $I$ and between $I$ and $D$ in both directions, and from
+$D$ to $I$. Formulas of the **prevalences of $I$ and $D$** at the epidemiological
+equilibrium are derived. The model is qualibrated by using information on (i)
+the prevalence of $I$, (ii) the prevalence of $D$, (iii) the proportion of
+infected that will develop the disease, (iv) the proportion of people developing
+the disease that do so within a given duration upon infection, and (v) the
+proportion of relapse.
+
+#### Treatment model
+Then we phenomenologically model the probability of treatment uptake as a
+function of the proposed duration of the proposed prophylactic treatment. For
+that we use a 3-parameter Hill equation that provides a S-curve with great
+shape flexibility.
+
+Any person taking the treatment can still drop it at any time. We thus modelled
+the treatment adherence as a function of the treatment duration in order to
+compute the effective duration of treatment that, accounting for drop-outs, will
+be lower than the treatment duration. To do so, we considered that any given day
+in the treatment the probability of dropping it increases with the number of
+days since the start of the treatment (reflecting a *"fatigue"* of taking the
+treatment) and, at the same time, decreases with the number of days left in the
+treatemnt (reflecting the fact that *somebody is not likely to give up that*
+*close to the "finish line"*). Each of these effects is modelled with a
+3-parameter Hill equation as described above and from these two probabilities
+combined we derive the probability distribution of the **effective treatment**
+**duration** among the people taking the treatment. This probability
+distribution naturally depends on the proposed duration of the treatment.
+
+The last piece of the puzzle consists in modelling the treatment efficacy as a
+function of its effective duration and here again we make use of a 3-parameter
+Hill equation to do so.
+
+Here we can put all the pieces together: treatment uptake, effective duration
+of treatment both as function of the proposed duration of the treatment and
+treatment efficiency as a function of the effective duration of the treatment in
+order to derive an effective policy efficiency.
+
+
 
 ## Packages
 
@@ -437,7 +494,7 @@ In R:
 
 ```{r}
 tb_cases <- function(
-  tau = .5,
+  tau = .45, # probable range between 30 and 60%
   treatment_duration = 30,
   theta1 = .8,
   h1 = 3,
@@ -454,9 +511,9 @@ tb_cases <- function(
   p = .9, E = 2, # p% of people developing disease doing so within E years
   x = .04, # proportion of I that will become D (3 to 5%)
   I = .25, # prevalence of I (between 10 and 40%)
-  D = 450 / 100000, # prevalence of D (between 150 and 300 / 100,000)
+  D = 450 / 200000, # prevalence of D (between 150 and 300 / 100,000)
   q = .15, # proportion of "recovered" D that actually goes to I instead of S
-  N = 1e6) { # population size
+  N = 1e5) { # population size
 
   parms <- parameters_values(p, E, x, I, D, q)
   sigma <- parms["sigma"]
@@ -472,10 +529,10 @@ tb_cases <- function(
 ```
 
 ```{r}
-xs <- 1:100
+xs <- seq2(0, 100)
 ys <- map_dbl(xs, ~ tb_cases(treatment_duration = .x))
-plot2(xs, ys, xlab = "duration of proposed treatment (days)",
-      ylab = "TB prevalence (per 1,000,000)")
+plot2(xs, ys, xlab = "duration of proposed prophylactic treatment (days)",
+      ylab = "TB prevalence (per 100,000)", ylim = c(0, max(ys, na.rm = TRUE)))
 ```
 
 
