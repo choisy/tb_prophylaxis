@@ -11,7 +11,8 @@ editor_options:
 ---
 
 ```{r setup, include = FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo  = TRUE,
+                      cache = TRUE)
 ```
 
 ## 1 Overview
@@ -20,7 +21,7 @@ knitr::opts_chunk$set(echo = TRUE)
 The goal is to reduce TB prevalence in the population by proposing a
 prophylactic treatment of a given duration to people recently exposed to a
 confirmed TB case. The shorter the proposed duration, the lower the efficacy
-of the treatment but, also -- we hypothesize -- the higher the uptake rate. The 
+of the treatment but, also -- we hypothesize --, the higher the uptake rate. The 
 question then is whether a higher uptake rate can epidemiologically
 (over-)compensate at the population level a lower efficacy of the treatment at
 the individual level. If yes, then we are also interested in knowing what is the
@@ -32,18 +33,26 @@ in the population.
 The model contains 2 sub-models. The first one is an epidemiological model of TB
 transmission in the population from which we derive a formula of the
 prevalence of TB in the population. The second one is a model of prophylactic
-treatment policy that accounts for (i) contact tracing efficacy, (ii) the
-distribution of effective treatment duration (derived from treatment uptake and
-adherence) as a function of the proposed treatment duration, and (iii) treatment
-efficacy as a function of the effective treatment duration. The efficacy of the
-prophylactic treatment policy is then integrated into the formula of the TB
-prevalence in order to derive the relationship between the proposed duration of
-the prophylactic treatment and the TB prevalance in the population.
+treatment policy that accounts for
+
+* contact tracing efficacy;
+* the effective treatment duration as a function of the proposed treatment
+  duration;
+* treatment efficacy as a function of the effective treatment duration.
+
+The distribution of effective treatment duration as a function of the proposed
+treatment duration is itself derived from assumptions made on how treatment
+uptake and adherence depend on the proposed treatment duration.
+
+The efficacy of the prophylactic treatment policy is then integrated into the
+formula of the TB prevalence in order to derive the relationship between the
+proposed duration of the prophylactic treatment and the TB prevalance in the
+population.
 
 #### 1.2.1 Epidemiological sub-model
 We develop a simple 5-parameters epidemiological model of TB that considers 3
-clinical status (Figure 1): (i) susceptible ($S$), (ii) infected and neither sick nor
-infectious ($I$), (iii) sick and infectious ($D$). In this model people can
+clinical status (**Figure 1**): (i) susceptible ($S$), (ii) infected and neither
+sick nor infectious ($I$), (iii) sick and infectious ($D$). In this model people can
 transit between $S$ and $I$ and between $I$ and $D$ in both directions, and from
 $D$ to $I$. Formulas of the **prevalences of $I$ and $D$** at the epidemiological
 equilibrium are derived. The model is qualibrated by using information on (i)
@@ -111,27 +120,19 @@ Tuning and defining some utilitary functions.
 
 ```{r}
 lwd_val <- 2
-```
 
-```{r}
 seq2 <- function(...) seq(..., le = 512)
-```
 
-```{r}
 plot2 <- function(..., col = 4) plot(..., type = "l", lwd = lwd_val, col = col)
-```
 
-```{r}
 lines2 <- function(..., col = 2) lines(..., lwd = lwd_val, col = col)
-```
 
-```{r}
 legend2 <- function(...) legend(..., lty = 1, lwd = lwd_val, bty = "n")
-```
 
-```{r}
 abline2 <- function(...) abline(..., lwd = lwd_val)
 ```
+
+A few utilitary functions:
 
 ```{r}
 void_plot <- function() plot(1, type = "n", axes = FALSE, ann = FALSE)

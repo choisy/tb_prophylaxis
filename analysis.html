@@ -1490,7 +1490,7 @@ prophylactic treatment</h1>
 <p>The goal is to reduce TB prevalence in the population by proposing a
 prophylactic treatment of a given duration to people recently exposed to
 a confirmed TB case. The shorter the proposed duration, the lower the
-efficacy of the treatment but, also – we hypothesize – the higher the
+efficacy of the treatment but, also – we hypothesize –, the higher the
 uptake rate. The question then is whether a higher uptake rate can
 epidemiologically (over-)compensate at the population level a lower
 efficacy of the treatment at the individual level. If yes, then we are
@@ -1503,20 +1503,28 @@ population.</p>
 <p>The model contains 2 sub-models. The first one is an epidemiological
 model of TB transmission in the population from which we derive a
 formula of the prevalence of TB in the population. The second one is a
-model of prophylactic treatment policy that accounts for (i) contact
-tracing efficacy, (ii) the distribution of effective treatment duration
-(derived from treatment uptake and adherence) as a function of the
-proposed treatment duration, and (iii) treatment efficacy as a function
-of the effective treatment duration. The efficacy of the prophylactic
-treatment policy is then integrated into the formula of the TB
-prevalence in order to derive the relationship between the proposed
-duration of the prophylactic treatment and the TB prevalance in the
-population.</p>
+model of prophylactic treatment policy that accounts for</p>
+<ul>
+<li>contact tracing efficacy;</li>
+<li>the effective treatment duration as a function of the proposed
+treatment duration;</li>
+<li>treatment efficacy as a function of the effective treatment
+duration.</li>
+</ul>
+<p>The distribution of effective treatment duration as a function of the
+proposed treatment duration is itself derived from assumptions made on
+how treatment uptake and adherence depend on the proposed treatment
+duration.</p>
+<p>The efficacy of the prophylactic treatment policy is then integrated
+into the formula of the TB prevalence in order to derive the
+relationship between the proposed duration of the prophylactic treatment
+and the TB prevalance in the population.</p>
 <div id="epidemiological-sub-model" class="section level4">
 <h4>1.2.1 Epidemiological sub-model</h4>
 <p>We develop a simple 5-parameters epidemiological model of TB that
-considers 3 clinical status (Figure 1): (i) susceptible (<span class="math inline">\(S\)</span>), (ii) infected and neither sick nor
-infectious (<span class="math inline">\(I\)</span>), (iii) sick and
+considers 3 clinical status (<strong>Figure 1</strong>): (i) susceptible
+(<span class="math inline">\(S\)</span>), (ii) infected and neither sick
+nor infectious (<span class="math inline">\(I\)</span>), (iii) sick and
 infectious (<span class="math inline">\(D\)</span>). In this model
 people can transit between <span class="math inline">\(S\)</span> and
 <span class="math inline">\(I\)</span> and between <span class="math inline">\(I\)</span> and <span class="math inline">\(D\)</span> in both directions, and from <span class="math inline">\(D\)</span> to <span class="math inline">\(I\)</span>. Formulas of the <strong>prevalences of
@@ -1589,12 +1597,18 @@ library(dplyr)</code></pre>
 <div id="functions" class="section level2">
 <h2>3 Functions</h2>
 <p>Tuning and defining some utilitary functions.</p>
-<pre class="r"><code>lwd_val &lt;- 2</code></pre>
-<pre class="r"><code>seq2 &lt;- function(...) seq(..., le = 512)</code></pre>
-<pre class="r"><code>plot2 &lt;- function(..., col = 4) plot(..., type = &quot;l&quot;, lwd = lwd_val, col = col)</code></pre>
-<pre class="r"><code>lines2 &lt;- function(..., col = 2) lines(..., lwd = lwd_val, col = col)</code></pre>
-<pre class="r"><code>legend2 &lt;- function(...) legend(..., lty = 1, lwd = lwd_val, bty = &quot;n&quot;)</code></pre>
-<pre class="r"><code>abline2 &lt;- function(...) abline(..., lwd = lwd_val)</code></pre>
+<pre class="r"><code>lwd_val &lt;- 2
+
+seq2 &lt;- function(...) seq(..., le = 512)
+
+plot2 &lt;- function(..., col = 4) plot(..., type = &quot;l&quot;, lwd = lwd_val, col = col)
+
+lines2 &lt;- function(..., col = 2) lines(..., lwd = lwd_val, col = col)
+
+legend2 &lt;- function(...) legend(..., lty = 1, lwd = lwd_val, bty = &quot;n&quot;)
+
+abline2 &lt;- function(...) abline(..., lwd = lwd_val)</code></pre>
+<p>A few utilitary functions:</p>
 <pre class="r"><code>void_plot &lt;- function() plot(1, type = &quot;n&quot;, axes = FALSE, ann = FALSE)</code></pre>
 </div>
 <div id="model" class="section level2">
