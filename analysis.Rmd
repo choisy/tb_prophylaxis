@@ -504,6 +504,9 @@ plot4(ds, p2(ts, treatment_duration, theta2, h2, K2), ylim = 0:1,
 
 with(durations(treatment_duration, theta1, theta2, h1, h2, K1, K2),
      plot5(x, y, ylab = "probability density"))
+
+with(durations(treatment_duration, theta1, theta2, h1, h2, K1, K2),
+     polygon(x, y, col = adjustcolor(4, .2), border = NA))
 par(opar)
 ```
 
