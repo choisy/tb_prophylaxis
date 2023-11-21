@@ -280,7 +280,7 @@ abline3(h = d_star(gamma, sigma, delta, beta, q, pi, N))
 par(opar)
 ```
 
-**Figure 6:**
+**Figure 2:**
 
 #### 4.2.6 Estimating / assessing parameters
 
