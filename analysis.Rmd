@@ -36,13 +36,14 @@ prevalence of TB in the population. The second one is a model of prophylactic
 treatment policy that accounts for
 
 * contact tracing efficacy;
+* treatment uptake as a function of proposed treatment duration;
 * the effective treatment duration as a function of the proposed treatment
   duration;
 * treatment efficacy as a function of the effective treatment duration.
 
-The distribution of effective treatment duration as a function of the proposed
-treatment duration is itself derived from assumptions made on how treatment
-uptake and adherence depend on the proposed treatment duration.
+The distribution of the effective treatment duration as a function of the
+proposed treatment duration is itself derived from assumptions made on how
+treatment adherence depends on the proposed treatment duration.
 
 The efficacy of the prophylactic treatment policy is then integrated into the
 formula of the TB prevalence in order to derive the relationship between the
@@ -51,23 +52,39 @@ population.
 
 #### 1.2.1 Epidemiological sub-model
 We develop a simple 5-parameters epidemiological model of TB that considers 3
-clinical status (**Figure 1**): (i) susceptible ($S$), (ii) infected and neither
-sick nor infectious ($I$), (iii) sick and infectious ($D$). In this model people can
-transit between $S$ and $I$ and between $I$ and $D$ in both directions, and from
-$D$ to $I$. Formulas of the **prevalences of $I$ and $D$** at the epidemiological
-equilibrium are derived. The model is qualibrated by using information on (i)
-the prevalence of $I$, (ii) the prevalence of $D$, (iii) the proportion of
-infected that will develop the disease, (iv) the proportion of people developing
-the disease that do so within a given duration after infection, and (v) the
-proportion of relapse.
+clinical status (**Figure 1**): 
+
+* susceptible ($S$);
+* infected but neither sick nor infectious ($I$);
+* sick and infectious ($D$).
+
+In this model people can transit between $S$ and $I$ and between $I$ and $D$ in
+both directions, and from $D$ to $I$. Formulas of the prevalences of $I$ and $D$
+at the epidemiological equilibrium are derived. The model is qualibrated by using 
+information on
+
+* the prevalence of $I$;
+* the prevalence of $D$;
+* the proportion of infected that will ultimately develop the disease;
+* the proportion of people developing the disease that do so within a given time;
+* the proportion of relapse.
 
 #### 1.2.2 Prophylactic treatment sub-model
+
+Here the sub-model aims at computing the efficacy of the prophylactic treatment
+policy by accounting for
+
+* contact tracing efficacy;
+* treatment uptake;
+* treatment adherence that determines the effective treatment duration upon
+  uptake;
+* treatment efficacy that depends on the effective treatment duration.
 
 **Treatment uptake:** in absence of detailed information of people's behaviour
 related to treatment, we phenomenologically model the probability of treatment
 uptake as a function of the proposed duration of the proposed prophylactic
-treatment. For that we use a 3-parameter Hill equation that provides a S-curve
-with great shape flexibility (Figure 4).
+treatment. For that, we use a 3-parameter Hill equation that provides a S-curve
+with great shape flexibility (**Figure 4**).
 
 **Treatment adherence and effective treatment duration:** any person taking the
 treatment can drop it at any time. We thus model the treatment adherence as a
@@ -78,30 +95,33 @@ the probability of dropping it increases with the number of days since the start
 of the treatment (reflecting a *"fatigue"* of taking the treatment) and, at the
 same time, decreases with the number of days left in the treatment (reflecting
 the fact that *somebody is not likely to give up that close to the "finish line"*). 
-Each of these 2 effects is modelled by a 3-parameter Hill equation as described
-above and, from these two probabilities combined, we derive the probability
+(An alternative to this second probability could be to express the time left in
+the treatment as a proportion of the total duration of the treatment.) Each of
+these 2 effects is modelled by a 3-parameter Hill equation as described above
+and, from these two probabilities combined, we derive the probability
 distribution of the effective treatment duration among the people taking the
-treatment (Figure 5). This probability distribution depends on the proposed duration of the
-treatment.
+treatment (**Figure 5**). This probability distribution depends on the proposed 
+duration of the treatment. From here we can either computer the mean of the
+distribution for the rest of the analysis or, instead, propagate this
+distribution through the rest of the analysis.
 
 **Treatment efficacy:** the last piece of the puzzle consists in modelling the
 treatment efficacy as a function of its effective duration and here again we
-make use of a 3-parameter Hill equation to do so (Figure 6).
+make use of a 3-parameter Hill equation to do so (**Figure 6**).
 
 #### 1.2.3 TB prevalence as a function of proposed treatment duration
 
-Here we can put all the pieces together: (i) treatment uptake and (ii) effective
-duration of treatment, both as function of the proposed duration of the
-treatment, (iii) treatment efficiency as a function of the effective duration of
-the treatment and, finally, (iv) the proportion of infected that can be found
-through contact tracing. Putting these 4 components together defines the
-efficacy of the prophylactic treatment strategy as a function of its proposed
-duration. We then convert this efficacy into a rate of the epidemiological model
-and insert this rate into the formula of the prevalence of TB that we derived
-first. Once this is done, we can express the prevalence of TB directly as a
-function of  the proposed duration of the proposed prophylactic treatment and
+From the above section we have the efficacy of the prophylactic treatment policy
+as a function of its proposed duration. Next step consists in integrating this
+efficacy into the formula of the TB prevalence by converting this efficacy into
+a rate accounting for the competing risks as defined by the epidemiological
+model.Once this is done, we can express the prevalence of TB directly as a
+function of the proposed duration of the proposed prophylactic treatment and
 then look whether there is a value of the duration of the duration of the
-prophylactic treatment that minimizes the TB prevalence (Figure 7).
+prophylactic treatment that minimizes the TB prevalence (**Figure 7**). As
+mentioned above, this can be done by considering either the mean effective
+duration of treatment, or the whole distribution of the effective duration of
+treatment.
 
 ## 2 Packages
 
@@ -152,7 +172,9 @@ void_plot <- function() plot(1, type = "n", axes = FALSE, ann = FALSE)
 
 <div style="text-align:center"><img src ="SID.png" width="160"/></div>
 
-**Figure 1:**
+**Figure 1:** flow chart of the epidemiological model in which people can be in
+3 clinical status: non-infected and susceptible ($S$), infected but neither
+sick nor infectious ($I$) and diseased people ($D$).
 
 #### 4.2.1 Parameters
 
@@ -280,7 +302,9 @@ abline3(h = d_star(gamma, sigma, delta, beta, q, pi, N))
 par(opar)
 ```
 
-**Figure 2:**
+**Figure 2:** numerical verification of the formulas for the equilibrium values
+of $S$, $I$ and $D$: numerical simulation in blue, values from the formulas in
+red.
 
 #### 4.2.6 Estimating / assessing parameters
 
@@ -365,7 +389,8 @@ abline3(h = d_star(gamma, sigma, delta, beta, q, pi, N))
 par(opar)
 ```
 
-**Figure 3:**
+**Figure 3:** same as Figure 2 but with realistic values of the parameters,
+verifying that the prevalences of $I$ and $D$ fit the expected values.
 
 ## 5 Prophylaxis
 
@@ -396,7 +421,8 @@ plot2(ds, uptake(ds, 1, 15, 4), ylim = 0:1,
 par(opar)
 ```
 
-**Figure 4:**
+**Figure 4:** modelled probability of treatment uptake as a function of proposed
+treatment duration.
 
 ### 5.2 Treatment adherence and effective duration of treatment
 
@@ -481,7 +507,10 @@ with(durations(treatment_duration, theta1, theta2, h1, h2, K1, K2),
 par(opar)
 ```
 
-**Figure 5:**
+**Figure 5:** the two probabilities of treatment adherence as a function of
+duration in the treatment (a) and duration left in the treatment (b) and the
+consequence of these probabilities on the distribution of the effective
+treatment duration (c).
 
 ### 5.3 Treatment efficiency
 
@@ -508,7 +537,8 @@ plot5(ts, efficiency(ts, 1, 1, 10), ylim = 0:1, ylab = "treatment efficiency")
 par(opar)
 ```
 
-**Figure 6:**
+**Figure 6:** modelled treatment efficacy as a function of the effective
+treatment duration.
 
 ### 5.4 Prophylaxis
 
@@ -578,4 +608,5 @@ plot2(xs, ys, xlab = "duration of proposed prophylactic treatment (days)",
       ylab = "TB prevalence (per 100,000)", ylim = c(0, max(ys, na.rm = TRUE)))
 ```
 
-**Figure 7:**
+**Figure 7:** tuberculosis prevalence as a function of proposed duration of
+prophylactic treatment.
