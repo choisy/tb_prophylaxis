@@ -11,8 +11,16 @@ editor_options:
 ---
 
 ```{r setup, include = FALSE}
-knitr::opts_chunk$set(echo  = TRUE,
-                      cache = TRUE)
+knitr::opts_chunk$set(echo       = TRUE,
+                      cache      = FALSE,
+                      autodep    = TRUE,
+                      message    = FALSE,
+                      warning    = FALSE,
+                      dev.args   = list(pointsize = 11),
+                      fig.height = 3.5,
+                      fig.width  = 4.24725,
+                      fig.retina = 2,
+                      fig.align  = "center")
 ```
 
 ## 1 Overview
@@ -127,7 +135,7 @@ treatment.
 
 The package used in this analysis:
 
-```{r message = FALSE}
+```{r}
 library(tibble)
 library(deSolve)
 library(purrr)
@@ -154,10 +162,6 @@ abline2 <- function(...) abline(..., lwd = lwd_val)
 ```
 
 A few utilitary functions:
-
-```{r}
-void_plot <- function() plot(1, type = "n", axes = FALSE, ann = FALSE)
-```
 
 ```{r}
 polygon2 <- function(x, y1, y2, col = 4, alpha = .1, ...) {
@@ -291,7 +295,7 @@ s_star <- function(gamma, sigma, delta, beta, q, pi, N) {
 
 Let's compare:
 
-```{r fig.width = 7, fig.height = 5 / 2}
+```{r fig.width = 7, fig.height = 5 / 2, margin = FALSE}
 S0 <- 1e6 - 10 # ind
 I0 <- 0 # ind
 D0 <- 10 # ind
@@ -380,7 +384,7 @@ parameters_values <- function(
 parameters_values()
 ```
 
-```{r fig.width = 7, fig.height = 5 / 2}
+```{r fig.width = 7, fig.height = 5 / 2, margin = FALSE}
 q <- .15
 D0 <- 10 # ind
 S0 <- 1e6 - D0 # ind
@@ -428,14 +432,12 @@ uptake <- function(d, Y, U, u) {
 
 Let's visualize it:
 
-```{r fig.width = 7, fig.height = 5 / 2}
+```{r}
 ds <- seq2(0, 30)
-opar <- par(mfrow = c(1, 3))
-void_plot()
 plot2(ds, uptake(ds, 1, 15, 4), ylim = 0:1,
       xlab = "duration of treatment (days)", ylab = "uptake probability")
-par(opar)
 ```
+
 
 **Figure 4:** modelled probability of treatment uptake as a function of proposed
 treatment duration.
@@ -497,7 +499,7 @@ durations <- function(d, theta1, theta2, h1, h2, K1, K2, le = 512) {
 
 Let's look at it:
 
-```{r fig.width = 7, fig.height = 5 / 2}
+```{r fig.width = 7, fig.height = 5 / 2, margin = FALSE}
 treatment_duration <- 30
 theta1 <- .8
 h1 <- 3
@@ -509,7 +511,7 @@ K2 <- 20
 ts <- seq2(0, 30)
 
 plot4 <- function(...) plot2(..., xlab = "days since the start of treatment")
-plot5 <- function(...) plot2(..., xlab = "actual duration of treatment")
+plot5 <- function(...) plot2(..., xlab = "actual duration of treatment (days)")
 
 opar <- par(mfrow = c(1, 3))
 plot4(ds, p1(ts, theta1, h1, K1), ylim = 0:1,
@@ -530,6 +532,37 @@ duration in the treatment (a) and duration left in the treatment (b) and the
 consequence of these probabilities on the distribution of the effective
 treatment duration (c).
 
+```{r}
+durations2 <- function(d, theta1, theta2, h1, h2, K1, K2, by = .05) {
+  xs <- seq(0, d, by)
+  le <- length(xs)
+  x <- map_dbl(xs, ~ p1(.x, theta1, h1, K1) * p2(.x, d, theta2, h2, K2))
+  out <- c(x[1], x[-1] * cumprod(1 - x[-le]))
+  tibble(x = xs,
+         y = out / sum(out))
+}
+```
+
+```{r}
+with(durations2(10, theta1, theta2, h1, h2, K1, K2), {
+  plot5(x, y, ylab = "probability density", xlim = c(0, 30))
+  polygon(x, y, col = adjustcolor(4, .2), border = NA)
+})
+
+with(durations2(20, theta1, theta2, h1, h2, K1, K2), {
+  lines2(x, y, col = 3)
+  polygon(x, y, col = adjustcolor(3, .2), border = NA)
+})
+
+with(durations2(30, theta1, theta2, h1, h2, K1, K2), {
+  lines2(x, y, col = 2)
+  polygon(x, y, col = adjustcolor(2, .2), border = NA)
+})
+
+legend2("topright", legend = paste0(10 * 1:3, " days proposed"), col = 4:2)
+```
+
+
 ### 5.3 Treatment efficiency
 
 We can assume that the treatment efficiency as a function of the actual duration
@@ -548,11 +581,8 @@ efficiency <- function(phi, xi, k, H) {
 
 Let's look at it:
 
-```{r fig.width = 7, fig.height = 5 / 2}
-opar <- par(mfrow = c(1, 3))
-void_plot()
+```{r}
 plot5(ts, efficiency(ts, 1, 1, 10), ylim = 0:1, ylab = "treatment efficiency")
-par(opar)
 ```
 
 **Figure 6:** modelled treatment efficacy as a function of the effective
@@ -712,7 +742,7 @@ ys <- mclapply(xs, function(x) tb_cases_dstr(treatment_duration = x),
 
 The plot:
 
-```{r  fig.width = .75 * 7, fig.height = .75 * 6.5}
+```{r}
 qtls <- map_dfr(ys, ~ quantile(.x, c(.025, .05, .1, .5, .9, .95, .975)))
 
 plot2(NA, xlab = "duration of proposed prophylactic treatment (days)",
