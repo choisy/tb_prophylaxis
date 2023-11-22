@@ -712,7 +712,7 @@ ys <- mclapply(xs, function(x) tb_cases_dstr(treatment_duration = x),
 
 The plot:
 
-```{r}
+```{r  fig.width = .75 * 7, fig.height = .75 * 6.5}
 qtls <- map_dfr(ys, ~ quantile(.x, c(.025, .05, .1, .5, .9, .95, .975)))
 
 plot2(NA, xlab = "duration of proposed prophylactic treatment (days)",
@@ -724,5 +724,9 @@ polygon2(xs, qtls$`2.5%`, qtls$`97.5%`)
 polygon2(xs, qtls$`5%`, qtls$`95%`)
 polygon2(xs, qtls$`10%`, qtls$`90%`)
 lines2(xs, qtls$`50%`, col = 4)
+
+xs <- seq2(0, 100)
+ys <- map_dbl(xs, ~ tb_cases(treatment_duration = .x))
+lines2(xs, ys)
 ```
 
