@@ -635,32 +635,32 @@ D^*(d) = \frac{\beta - (1 - q + (\gamma + \pi(d)) / \sigma)\delta}
 {(1 + \delta / \sigma)\beta}N
 $$
 
-### Mean-field model prediction
+#### 5.4.1 Mean-field model prediction
 
 In R:
 
 ```{r}
 tb_cases <- function(
-  tau = .45, # probable range between 30 and 60%
-  treatment_duration = 30,
-  theta1 = .8,
-  h1 = 3,
-  K1 = 20,
-  theta2 = .1,
-  h2 = 3,
-  K2 = 20,
-  Y = 1,
-  U = 15,
-  u = 4,
-  xi = 1,
-  k = 1,
-  H = 10,
-  p = .9, E = 2, # p% of people developing disease doing so within E years
-  x = .04, # proportion of I that will become D (3 to 5%)
-  I = .25, # prevalence of I (between 10 and 40%)
-  D = 450 / 200000, # prevalence of D (between 150 and 300 / 100,000)
-  q = .15, # proportion of "recovered" D that actually goes to I instead of S
-  N = 1e5) { # population size
+    tau = .45, # probable range between 30 and 60%
+    treatment_duration = 30,
+    theta1 = .8,
+    h1 = 3,
+    K1 = 20,
+    theta2 = .1,
+    h2 = 3,
+    K2 = 20,
+    Y = 1,
+    U = 15,
+    u = 4,
+    xi = 1,
+    k = 1,
+    H = 10,
+    p = .9, E = 2, # p% of people developing disease doing so within E years
+    x = .04, # proportion of I that will become D (3 to 5%)
+    I = .25, # prevalence of I (between 10 and 40%)
+    D = 450 / 200000, # prevalence of D (between 150 and 300 / 100,000)
+    q = .15, # proportion of "recovered" D that actually goes to I instead of S
+    N = 1e5) { # population size
 
   parms <- parameters_values(p, E, x, I, D, q)
   sigma <- parms["sigma"]
@@ -678,7 +678,8 @@ tb_cases <- function(
 
 ```{r}
 xs <- seq2(0, 100)
-ys <- map_dbl(xs, ~ tb_cases(treatment_duration = .x))
+ys <- map_dbl(xs,
+              ~ tb_cases(treatment_duration = .x, h1 = 5, K1 = 50, theta2 = .0003))
 plot2(xs, ys, xlab = "duration of proposed prophylactic treatment (days)",
       ylab = "TB prevalence (per 100,000)", ylim = c(0, max(ys, na.rm = TRUE)))
 ```
@@ -687,7 +688,7 @@ plot2(xs, ys, xlab = "duration of proposed prophylactic treatment (days)",
 prophylactic treatment.
 
 
-### Including the distribution of effective treatment time
+#### 5.4.2 Including the distribution of effective treatment time
 
 A function that converts a duration into incidence:
 
@@ -758,29 +759,35 @@ tb_cases_dstr <- function(
 
 Generating the data, takes about 30":
 
-```{r eval = F, include=F}
+```{r}
 xs <- seq2(0, 100)[-1]
-ys <- mclapply(xs, function(x) tb_cases_dstr(treatment_duration = x),
+ys <- mclapply(xs,
+               function(x)
+                 tb_cases_dstr(treatment_duration = x, h1 = 5, K1 = 50, theta2 = .0003, n = 1e4),
                mc.cores = detectCores() - 1)
 ```
 
 The plot:
 
-```{r eval = F, include=F}
-qtls <- map_dfr(ys, ~ quantile(.x, c(.025, .05, .1, .5, .9, .95, .975)))
+```{r}
+cis <- c(.95, .9, .8, .7, .6, .5, .4, .3, .2, .1)
+
+tmp <- (1 - cis) / 2
+
+qtls <- map_dfr(ys, ~ quantile(.x, c(tmp, .5, rev(1 - tmp))))
 
 plot2(NA, xlab = "duration of proposed prophylactic treatment (days)",
       ylab = "TB prevalence (per 100,000)",
       xlim = c(0, max(xs)),
-      ylim = c(0, max(qtls$`97.5%`, na.rm = TRUE)))
+      ylim = c(0, max(qtls[, ncol(qtls)], na.rm = TRUE)))
 
-polygon2(xs, qtls$`2.5%`, qtls$`97.5%`)
-polygon2(xs, qtls$`5%`, qtls$`95%`)
-polygon2(xs, qtls$`10%`, qtls$`90%`)
-lines2(xs, qtls$`50%`, col = 4)
+le <- length(cis)
+nbcol <- 2 * le + 2
+walk(seq_along(cis), ~ polygon2(xs, qtls[[.x]], qtls[[nbcol - .x]]))
 
-xs <- seq2(0, 100)
-ys <- map_dbl(xs, ~ tb_cases(treatment_duration = .x))
-lines2(xs, ys)
+lines2(xs, qtls[[le + 1]], col = 4)
+
+xs2 <- seq2(0, 100)
+ys2 <- map_dbl(xs2, ~ tb_cases(treatment_duration = .x, h1 = 5, K1 = 50, theta2 = .0003))
+lines2(xs2, ys2)
 ```
-
