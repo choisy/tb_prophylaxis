@@ -770,7 +770,9 @@ ys <- mclapply(xs,
 The plot:
 
 ```{r}
-cis <- c(.95, .9, .8, .7, .6, .5, .4, .3, .2, .1)
+cis <- c(1:9 / 10, .95)
+
+cis <- sort(cis, TRUE)
 
 tmp <- (1 - cis) / 2
 
