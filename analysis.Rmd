@@ -2,7 +2,6 @@
 title: "Optimal proposed duration of a TB prophylactic treatment"
 output:
   html_document:
-    theme: cerulean
     toc: yes
     toc_float: yes
     toc_depth: 4
@@ -158,7 +157,7 @@ lines2 <- function(..., col = 2) lines(..., lwd = lwd_val, col = col)
 
 legend2 <- function(...) legend(..., lty = 1, lwd = lwd_val, bty = "n")
 
-abline2 <- function(...) abline(..., lwd = lwd_val)
+abline2 <- function(..., col = 2) abline(..., lwd = lwd_val, col = col)
 ```
 
 A few utilitary functions:
@@ -421,35 +420,159 @@ verifying that the prevalences of $I$ and $D$ fit the expected values.
 
 ## 5 Prophylaxis model
 
-### 5.1 Treatment uptake
+### 5.1 The Hill equation
 
-We can model the probability of treatment uptake as a function of the treatement
-duration using a Hill equation:
+In what follows we will model many phenomena phenomenologically using the
+3-parameter monotonically increasing Hill equation, the general equation of
+which is
 
 $$
-\upsilon(d) = \frac{U^u + (1 - \Upsilon)d^u}{U^u + d^u}
+y = Y\frac{x^h}{X^h + x^h}
 $$
-In R:
+where $Y$ is the maximum value that $y$ can take, $X$ is the value of $x$ at
+which $y$ reaches half of its maximum value $Y$ and $h$ is the Hill coefficient
+that controls the shape of the relationship with S-shape for $0 < h < 1$ and a
+simple saturating shape when $h \ge 1$.
 
 ```{r}
-uptake <- function(d, Y, U, u) {
-  (U^u + (1 - Y) * d^u) / (U^u + d^u)
+hill <- function(x, X, Y, h) {
+  x2h <- x^h
+  Y * x2h / (X^h + x2h)
 }
 ```
 
-Let's visualize it:
+Let's illustrate the properties of this equation:
+
+```{r}
+xs <- seq2(0, 40)
+X <- 15
+Y <- .8
+
+plot(NA, xlim = c(0, max(xs)), ylim = c(0, Y), xlab = "x values", ylab = "y values")
+hs <- exp(seq(-3, 3))
+abline2(v = X, col = "grey")
+abline2(h = Y, col = "grey")
+walk2(hs, rev(RColorBrewer::brewer.pal(n = length(hs), "Spectral")),
+      ~ lines2(xs, hill(xs, X, Y, h = .x), col = .y))
+```
+
+
+### 5.2 Treatment uptake
+
+We can model the probability of treatment uptake as a function of the treatment
+duration using a Hill equation as so:
 
 ```{r}
 ds <- seq2(0, 30)
-plot2(ds, uptake(ds, 1, 15, 4), ylim = 0:1,
+plot2(ds, 1 - hill(ds, 15, 1, 4), ylim = 0:1,
       xlab = "duration of treatment (days)", ylab = "uptake probability")
 ```
-
 
 **Figure 4:** modelled probability of treatment uptake as a function of proposed
 treatment duration.
 
-### 5.2 Treatment adherence and effective duration of treatment
+
+```{r}
+# chunk to be removed at some point
+
+#uptake <- function(d, Y, U, u) {
+#  (U^u + (1 - Y) * d^u) / (U^u + d^u)
+#}
+
+uptake <- function(d, Y, U, u) 1 - hill(d, U, Y, u)
+```
+
+
+### 5.3 Treatment adherence and effective duration of treatment
+
+Let's assume that the probability $f$ that somebody stops his/her treatment
+increases with the number of days s/he's been taking the treatment according to
+a Hill equation, reflecting some fatigue effect of being in the treatment. Let's
+further assume that this probability is gets mitigated the more we get close to
+the end of the treatment, reflecting the effect that a person is not likely to
+drop a treatment anymore when s/he gets close to the end of the treatment. This
+mitigation effect $m \in [0,1]$ is modelled by with a Hill equation as well. The
+probability $p(t)$ that somebody on his/her day $t$ of treatment drops it then
+reads
+
+$$
+p(t) = m(t) \times f(t)
+$$
+
+From this we can express the probability that somebody stops his/her treatment
+**at time $t$** as
+
+$$
+P(t) = p(t)\prod_{x=0}^{{}^{-}t}(1 - p(x))^{dx}
+$$
+
+The probability distribution of the actual durations of treatment (*aka*
+**effective durations of treatment**) can then be expressed by:
+
+$$
+\varphi(t, d) = \frac{P(t)}{\int_{0}^d P(x)dx}
+$$
+
+where $d$ is the **proposed duration of treatment**.
+
+Let's look at some examples:
+
+```{r}
+proposed_duration <- 40
+Xf <- 25
+Yf <- .8
+hf <- 7
+Xm_prop <- .875
+Ym <- 1
+hm <- 50
+
+Xm <- Xm_prop * proposed_duration
+ts <- seq2(0, proposed_duration)
+
+fatigue <- hill(ts, Xf, Yf, hf)
+mitigation <- 1 - hill(ts, Xm, Ym, hm)
+
+plot2(ts, fatigue, ylim = 0:1, col = 3,
+      xlab = "time in treatment (days)",
+      ylab = "probability or mitigation factor")
+lines2(ts, mitigation)
+lines2(ts, mitigation * fatigue, col = 4)
+
+legend2("topleft", legend = c("fatigue", "mitigation", "dropping probability"),
+        col = c(3, 2, 4))
+```
+
+Let's package:
+
+```{r}
+dropping_probability <- function(pd = 40,
+                                 Xf = 25, Yf = .8, hf = 7,
+                                 Xmp = .875, Ym = 1, hm = 50,
+                                 lgnd = TRUE) {
+  Xm <- Xmp * pd
+  ts <- seq2(0, pd)
+
+  fatigue <- hill(ts, Xf, Yf, hf)
+  mitigation <- 1 - hill(ts, Xm, Ym, hm)
+  
+  plot2(ts, fatigue, ylim = 0:1, col = 3,
+        xlab = "time in treatment (days)",
+        ylab = "probability or mitigation factor")
+  lines2(ts, mitigation)
+  lines2(ts, mitigation * fatigue, col = 4)
+  
+  if (lgnd)
+    legend2("topleft",
+            legend = c("fatigue", "mitigation", "dropping probability"),
+            col = c(3, 2, 4))
+
+}
+
+dropping_probability(lgnd = FALSE)
+```
+
+
+### 5.3 Treatment adherence and effective duration of treatment
 
 Let's assume that the probability that somebody stops his/her treatment
 increases with the number of days s/he's been taking the treatment:
@@ -484,7 +607,49 @@ $$
 \varphi(t,d) = \frac{P(t,d)}{\int_{0}^d P(x,d)dx}
 $$
 
-In R:
+Probability of dropping the treatment due to some fatigue effect:
+
+```{r}
+p1 <- function(t, theta1, h1, K1) {
+  theta1 * t^h1 / (K1^h1 + t^h1)
+}
+```
+
+Let's look at it:
+
+```{r}
+ts <- seq2(0, 40)
+K1 <- 15
+theta1 <- .8
+
+plot(NA, xlim = c(0, max(ts)), ylim = 0:1, xlab = "time in treatment (days)",
+     ylab = "probability")
+h1_val <- exp(seq(-3, 3))
+abline2(v = K1, col = "grey")
+abline2(h = theta1, col = "grey")
+walk2(h1_val, rev(RColorBrewer::brewer.pal(n = length(h1_val), "Spectral")),
+      ~ lines2(ts, p1(ts, theta1, h1 = .x, K1), col = .y))
+```
+
+Mitigation of the probability of dropping the treatment due to some
+*"finish line"* effect:
+
+```{r}
+p2 <- function(t, theta2, h2, K2) {
+  1 - theta2 * t^h2 / (K2^h2 + t^h2)
+}
+```
+
+Let's look at it:
+
+```{r}
+ts <- seq2(0, 40)
+plot2(ts, p2(ts, theta2 = 1, h2 = 50, K2 = 35), xlim = c(0, max(ts)), ylim = 0:1,
+      xlab = "time in treatment (days)", ylab = "mitigation factor")
+```
+
+
+
 
 ```{r}
 p1 <- function(t, theta1, h1, K1) {
@@ -584,6 +749,50 @@ with(durations2(30, theta1, theta2, h1, h2, K1, K2), {
 })
 
 legend2("topright", legend = paste0(10 * 1:3, " days proposed"), col = 4:2)
+```
+
+```{r}
+with(durations2(10, theta1, theta2, h1, h2, K1, K2), {
+  plot5(x, y, ylab = "probability density", xlim = c(0, 30))
+  polygon3(x, y)
+})
+
+walk(10 * 2:10,
+     ~ with(durations2(.x, theta1, theta2, h1, h2, K1, K2), {
+         lines2(x, y, col = 4)
+         polygon3(x, y)
+       })
+)
+```
+
+```{r}
+with(durations2(10, theta1, theta2, h1, h2, K1, K2), {
+  plot5(x, y, ylab = "probability density", xlim = c(0, 30))
+  polygon3(x, y)
+})
+
+walk(11:30,
+     ~ with(durations2(.x, theta1, theta2, h1, h2, K1, K2), {
+         lines2(x, y, col = 4)
+         polygon3(x, y)
+       })
+)
+```
+
+```{r}
+prob_any <- function(treatment_duration, ts, theta1, h1, K1, theta2, h2, K2) {
+  prob1 <- p1(ts, theta1, h1, K1)
+  prob2 <- p2(ts, treatment_duration, theta2, h2, K2)
+  prob1 + prob2 - prob1 * prob2
+}
+```
+
+```{r}
+xs <- seq2(0, 100)
+plot4(xs, prob_any(treatment_duration = 30, ts, theta1, h1, K1, theta2, h2, K2),
+      ylab = "probability of dropping treatment")
+walk(9:29, ~ lines(xs, prob_any(treatment_duration = .x, ts, theta1, h1, K1,
+                                 theta2, h2, K2), col = 4))
 ```
 
 
@@ -759,7 +968,7 @@ tb_cases_dstr <- function(
 
 Generating the data, takes about 30":
 
-```{r}
+```{r eval = FALSE}
 xs <- seq2(0, 100)[-1]
 ys <- mclapply(xs,
                function(x)
@@ -769,7 +978,7 @@ ys <- mclapply(xs,
 
 The plot:
 
-```{r}
+```{r eval = FALSE}
 cis <- c(1:9 / 10, .95)
 
 cis <- sort(cis, TRUE)
