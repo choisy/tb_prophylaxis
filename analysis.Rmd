@@ -545,10 +545,10 @@ legend2("topleft", legend = c("fatigue", "mitigation", "dropping probability"),
 Let's package:
 
 ```{r}
-dropping_probability <- function(pd = 40,
-                                 Xf = 25, Yf = .8, hf = 7,
-                                 Xmp = .875, Ym = 1, hm = 50,
-                                 lgnd = TRUE) {
+probabilities <- function(pd = 40,
+                          Xf = 25, Yf = .8, hf = 7,
+                          Xmp = .875, Ym = 1, hm = 50,
+                          lgnd = TRUE) {
   Xm <- Xmp * pd
   ts <- seq2(0, pd)
 
@@ -567,8 +567,107 @@ dropping_probability <- function(pd = 40,
             col = c(3, 2, 4))
 
 }
+```
 
-dropping_probability(lgnd = FALSE)
+Executing the function:
+
+```{r}
+probabilities(lgnd = FALSE)
+```
+
+Let's now work out the probability distribution of the effective durations of
+treatment:
+
+```{r}
+dropping_probability <- function(pd = 40,
+                                 Xf = 25, Yf = .8, hf = 7,
+                                 Xmp = .875, Ym = 1, hm = 50,
+                                 by = pd / (le - 1), le = 512) {
+  ts <- seq(0, pd, by)
+  tibble(x = ts,
+         y = hill(ts, Xf, Yf, hf) * (1 - hill(ts, Xmp * pd, Ym, hm)))
+}
+```
+
+
+
+```{r}
+effective_duration <- function(pd = 40,
+                               Xf = 25, Yf = .8, hf = 7,
+                               Xmp = .875, Ym = 1, hm = 50,
+                               by = pd / (le - 1), le = 512) {
+  dp <- dropping_probability(pd, Xf, Yf, hf, Xmp, Ym, hm, by, le)
+  y <- dp$y
+  dens <- c(y[1], y[-1] * cumprod(1 - y[-length(y)]))
+  tibble(x = dp$x,
+         y = dens / sum(dens))
+}
+```
+
+
+Let's try it:
+
+```{r}
+plot4 <- function(...) plot2(..., xlab = "days since the start of treatment")
+plot5 <- function(...) plot2(..., xlab = "actual duration of treatment (days)")
+
+with(effective_duration(), {
+  plot5(x, y, ylab = "probability density")
+  polygon3(x, y)
+})
+```
+
+
+```{r}
+pd <- 40
+Xf <- 100
+Yf <- .8
+hf <- 7
+Xmp <- .875
+Ym <- 1
+hm <- 50
+by <- .1
+
+opar <- par(mfrow = 1:2)
+
+with(dropping_probability(pd, Xf, Yf, hf, Xmp, Ym, hm, by, le),
+     plot4(x, y, ylab = "probability of dropping treatment"))
+
+with(effective_duration(pd, Xf, Yf, hf, Xmp, Ym, hm, by, le), {
+  plot5(x, y, ylab = "probability density")
+  polygon3(x, y)
+})
+
+par(opar)
+```
+
+```{r}
+pd <- 40
+Xf <- 100
+Yf <- .8
+hf <- 7
+Xmp <- .875
+Ym <- 1
+hm <- 50
+by <- .1
+proposed_durations <- c(20, 40, 60, 70, 80)
+color_values <- seq_along(proposed_durations) + 1
+
+eds <- map(proposed_durations,
+           ~ effective_duration(.x, Xf, Yf, hf, Xmp, Ym, hm, by))
+
+plot(NA,
+     xlim = c(0, max(proposed_durations)),
+     ylim = c(0, max(unlist(map(eds, ~ .x$y)))),
+     xlab = "effective duration of treatment (days)",
+     ylab = "probability density")
+
+walk2(eds, color_values, ~ with(.x, {
+  lines2(.x$x, .x$y, col = .y)
+  polygon3(x, y, col = .y)
+}))
+
+abline2(v = proposed_durations, col = color_values)
 ```
 
 
