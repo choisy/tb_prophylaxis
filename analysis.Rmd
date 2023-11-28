@@ -155,11 +155,16 @@ plot2 <- function(..., col = 4) plot(..., type = "l", lwd = lwd_val, col = col)
 
 plot3 <- function(...) plot2(..., xlab = "time (years)")
 
+plot4 <- function(...) plot2(..., xlab = "actual duration of treatment (days)")
+
 lines2 <- function(..., col = 2) lines(..., lwd = lwd_val, col = col)
 
 legend2 <- function(...) legend(..., lty = 1, lwd = lwd_val, bty = "n")
 
 abline2 <- function(..., col = 2) abline(..., lwd = lwd_val, col = col)
+
+mclapply2 <- function(...)
+  parallel::mclapply(..., mc.cores = parallel::detectCores() - 1) 
 ```
 
 A few utilitary functions:
@@ -184,6 +189,10 @@ A function that will draw from the probability distribution:
 draw <- function(probs, n) {
   rep(seq_along(probs), as.vector(rmultinom(1, size = n, prob = probs)))
 }
+```
+
+```{r}
+get_val <- function(ind, vect) vect[ind]
 ```
 
 
@@ -264,20 +273,17 @@ The model in R:
 ```{r}
 model <- function(S0, I0, D0, beta, sigma, gamma, delta, q, pi, times) {
   N <- S0 + I0 + D0
-  ode(
-    c(S = S0, I = I0, D = D0),
-    times,
-    function(time, state, pars) {
-      with(as.list(c(state, pars)), {
-        infections <- beta * D * S / N
-        dS <- (1 - q) * delta * D + (gamma + pi) * I - infections
-        dI <- infections + q * delta * D - (sigma + gamma + pi) * I
-        dD <- sigma * I - delta * D
-        list(c(dS, dI, dD))
-      })
-    },
-    c(beta = beta, sigma = sigma, gamma = gamma, delta = delta, q = q, pi = pi)
-  ) |>
+  c(S = S0, I = I0, D = D0) |> 
+    ode(times,
+        function(time, state, pars) {
+          with(as.list(c(state, pars)), {
+            infections <- beta * D * S / N
+            dS <- (1 - q) * delta * D + (gamma + pi) * I - infections
+            dI <- infections + q * delta * D - (sigma + gamma + pi) * I
+            dD <- sigma * I - delta * D
+            list(c(dS, dI, dD))
+          })},
+        c(beta = beta, sigma = sigma, gamma = gamma, delta = delta, q = q, pi = pi)) |>
     as.data.frame() |> 
     as_tibble()
 }
@@ -375,8 +381,8 @@ parameters_values <- function(
     x = .04, # proportion of I that will become D (3 to 5%)
     I = .25, # prevalence of I (between 10 and 40%)
     D = 450 / 100000, # prevalence of D (between 150 and 300 / 100,000)
-    q = .15 # proportion of "recovered" D that actually go to I instead of S
-  ) {
+    q = .15) { # proportion of "recovered" D that actually go to I instead of S
+  
   sigma <- - log(1 - p) / E
   gamma <- sigma * (1 - x) / x
   delta <- sigma * I / D
@@ -448,7 +454,8 @@ xs <- seq2(0, 40)
 X <- 15
 Y <- .8
 
-plot(NA, xlim = c(0, max(xs)), ylim = c(0, Y), xlab = "x values", ylab = "y values")
+plot(NA, xlim = c(0, max(xs)), ylim = c(0, Y),
+     xlab = "x values", ylab = "y values")
 hs <- exp(seq(-3, 3))
 abline2(v = X, col = "grey")
 abline2(h = Y, col = "grey")
@@ -470,17 +477,6 @@ plot2(ds, 1 - hill(ds, 15, 1, 4), ylim = 0:1,
 
 **Figure 4:** modelled probability of treatment uptake as a function of proposed
 treatment duration.
-
-
-```{r}
-# chunk to be removed at some point
-
-#uptake <- function(d, Y, U, u) {
-#  (U^u + (1 - Y) * d^u) / (U^u + d^u)
-#}
-
-#uptake <- function(d, Y, U, u) 1 - hill(d, U, Y, u)
-```
 
 
 ### 5.3 Treatment adherence and effective duration of treatment
@@ -518,10 +514,12 @@ where $d$ is the **proposed duration of treatment**.
 Let's look at some examples:
 
 ```{r}
-probabilities <- function(pd = 40,
-                          Xf = 25, Yf = .8, hf = 7,
-                          Xmp = .875, Ym = 1, hm = 50,
-                          lgnd = TRUE) {
+probabilities <- function(
+    pd = 40, # propsed duration of treatment
+    Xf = 25, Yf = .8, hf = 7, # fatigue
+    Xmp = .875, Ym = 1, hm = 50, # mitigation of fatigue
+    lgnd = TRUE) { # whether to add the legend to the plot or not
+  
   Xm <- Xmp * pd
   ts <- seq2(0, pd)
 
@@ -535,9 +533,8 @@ probabilities <- function(pd = 40,
   lines2(ts, mitigation * fatigue, col = 4)
   
   if (lgnd)
-    legend2("topleft",
-            legend = c("fatigue", "mitigation", "dropping probability"),
-            col = c(3, 2, 4))
+    legend2("topleft", col = c(3, 2, 4),
+            legend = c("fatigue", "mitigation of fatigue", "dropping probability"))
 }
 ```
 
@@ -551,10 +548,12 @@ Let's now work out the probability distribution of the effective durations of
 treatment:
 
 ```{r}
-dropping_probability <- function(pd = 40,
-                                 Xf = 25, Yf = .8, hf = 7,
-                                 Xmp = .875, Ym = 1, hm = 50,
-                                 by = pd / (le - 1), le = 512) {
+dropping_probability <- function(
+    pd = 40, # proposed duration of treatment
+    Xf = 25, Yf = .8, hf = 7, # fatigue
+    Xmp = .875, Ym = 1, hm = 50, # mitigation of fatigue
+    by = pd / (le - 1), le = 512) { # sampling day in the treatment
+
   ts <- seq(0, pd, by)
   tibble(x = ts,
          y = hill(ts, Xf, Yf, hf) * (1 - hill(ts, Xmp * pd, Ym, hm)))
@@ -564,10 +563,12 @@ dropping_probability <- function(pd = 40,
 
 
 ```{r}
-effective_duration <- function(pd = 40,
-                               Xf = 25, Yf = .8, hf = 7,
-                               Xmp = .875, Ym = 1, hm = 50,
-                               by = pd / (le - 1), le = 512) {
+effective_duration <- function(
+    pd = 40, # proposed duration of treatment
+    Xf = 25, Yf = .8, hf = 7, # fatigue
+    Xmp = .875, Ym = 1, hm = 50, # mitigation of fatigue
+    by = pd / (le - 1), le = 512) { # sampling effective durations of treatment
+  
   dp <- dropping_probability(pd, Xf, Yf, hf, Xmp, Ym, hm, by, le)
   y <- dp$y
   dens <- c(y[1], y[-1] * cumprod(1 - y[-length(y)]))
@@ -579,11 +580,8 @@ effective_duration <- function(pd = 40,
 Let's try it:
 
 ```{r}
-plot4 <- function(...) plot2(..., xlab = "days since the start of treatment")
-plot5 <- function(...) plot2(..., xlab = "actual duration of treatment (days)")
-
 with(effective_duration(), {
-  plot5(x, y, ylab = "probability density")
+  plot4(x, y, ylab = "probability density")
   polygon3(x, y)
 })
 ```
@@ -620,20 +618,20 @@ abline2(v = proposed_durations, col = color_values)
 ```
 
 
-### 5.4 Treatment efficiency
+### 5.4 Treatment efficacy
 
 We can assume that the treatment efficiency as a function of the actual duration
 of treatment also follows a Hill equation:
 
 ```{r}
 ts <- seq2(0, 30)
-plot5(ts, hill(ts, 10, 1, 1), ylim = 0:1, ylab = "treatment efficiency")
+plot4(ts, hill(ts, 10, 1, 1), ylim = 0:1, ylab = "treatment efficacy")
 ```
 
 **Figure 6:** modelled treatment efficacy as a function of the effective
 treatment duration.
 
-### 5.4 Prophylaxis
+### 5.5 Putting everything together
 
 By putting everything together, we can express the probability of successful
 prophylactic treatment of infected as
@@ -679,6 +677,7 @@ duration2incidence <- function(
     gamma, sigma, delta, beta, # epidemiological parameters
     q = .15, # proportion of "recovered" D that actually goes to I instead of S
     N = 1e5) {  # population size
+  
   chi <- tau * (1 - hill(pd, Xu, Yu, hu)) * hill(ed, Xe, Ye, he)
   d_star(gamma, sigma, delta, beta, q, chi * (sigma + gamma) / (1 - chi), N)
 }
@@ -699,8 +698,8 @@ tb_cases <- function(
     D = 450 / 200000, # prevalence of D (150 to 300 / 100,000)
     q = .15, # proportion of "recovered" D that actually goes to I instead of S
     N = 1e5, # population size
-    n = 1e3, # number of draws to sample the distribution of the effective durations
-    by = pd / (le - 1), le = 512) { # integration
+    n = 1e5, # number of draws to sample the distribution of the effective durations
+    by = pd / (le - 1), le = 1e4) { # integration
   
   parms <- parameters_values(p, E, x, I, D, q)
   sigma <- parms["sigma"]
@@ -709,25 +708,29 @@ tb_cases <- function(
   ts <- seq(0, pd, by)
   drop_prob <- hill(ts, Xf, Yf, hf) * (1 - hill(ts, Xmp * pd, Ym, hm))
 
-  draws <- c(drop_prob[1], drop_prob[-1] * cumprod(1 - drop_prob[-length(drop_prob)])) |>
+  draws <- c(drop_prob[1],
+             drop_prob[-1] * cumprod(1 - drop_prob[-length(drop_prob)])) |>
     draw(n) |> 
     table()
   
-  ts[as.numeric(names(draws))] |> 
+  draws |> 
+    names() |> 
+    as.numeric() |> 
+    get_val(ts) |> 
     map_dbl(~ duration2incidence(.x, pd, tau, Xu, Yu, hu, Xe, Ye, he, gamma,
                                  sigma, parms["delta"], parms["beta"], q, N)) |> 
     rep(draws)
-    
 }
 ```
+
+
 
 ```{r}
 xs <- seq2(1, 100)
 probs <- 0:10 / 10
 
 ys <- xs |>
-  mclapply(function(x) quantile(tb_cases(x, n = 1e5, le = 1e4), probs),
-           mc.cores = detectCores() - 1) |> 
+  mclapply2(function(x) quantile(tb_cases(x), probs)) |> 
   bind_rows()
 ```
 
