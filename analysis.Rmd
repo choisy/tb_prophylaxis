@@ -518,33 +518,6 @@ where $d$ is the **proposed duration of treatment**.
 Let's look at some examples:
 
 ```{r}
-proposed_duration <- 40
-Xf <- 25
-Yf <- .8
-hf <- 7
-Xm_prop <- .875
-Ym <- 1
-hm <- 50
-
-Xm <- Xm_prop * proposed_duration
-ts <- seq2(0, proposed_duration)
-
-fatigue <- hill(ts, Xf, Yf, hf)
-mitigation <- 1 - hill(ts, Xm, Ym, hm)
-
-plot2(ts, fatigue, ylim = 0:1, col = 3,
-      xlab = "time in treatment (days)",
-      ylab = "probability or mitigation factor")
-lines2(ts, mitigation)
-lines2(ts, mitigation * fatigue, col = 4)
-
-legend2("topleft", legend = c("fatigue", "mitigation", "dropping probability"),
-        col = c(3, 2, 4))
-```
-
-Let's package:
-
-```{r}
 probabilities <- function(pd = 40,
                           Xf = 25, Yf = .8, hf = 7,
                           Xmp = .875, Ym = 1, hm = 50,
@@ -565,14 +538,13 @@ probabilities <- function(pd = 40,
     legend2("topleft",
             legend = c("fatigue", "mitigation", "dropping probability"),
             col = c(3, 2, 4))
-
 }
 ```
 
 Executing the function:
 
 ```{r}
-probabilities(lgnd = FALSE)
+probabilities()
 ```
 
 Let's now work out the probability distribution of the effective durations of
@@ -604,7 +576,6 @@ effective_duration <- function(pd = 40,
 }
 ```
 
-
 Let's try it:
 
 ```{r}
@@ -618,28 +589,6 @@ with(effective_duration(), {
 ```
 
 
-```{r}
-pd <- 40
-Xf <- 100
-Yf <- .8
-hf <- 7
-Xmp <- .875
-Ym <- 1
-hm <- 50
-by <- .1
-
-opar <- par(mfrow = 1:2)
-
-with(dropping_probability(pd, Xf, Yf, hf, Xmp, Ym, hm, by, le),
-     plot4(x, y, ylab = "probability of dropping treatment"))
-
-with(effective_duration(pd, Xf, Yf, hf, Xmp, Ym, hm, by, le), {
-  plot5(x, y, ylab = "probability density")
-  polygon3(x, y)
-})
-
-par(opar)
-```
 
 ```{r}
 pd <- 40
@@ -671,231 +620,7 @@ abline2(v = proposed_durations, col = color_values)
 ```
 
 
-### 5.3 Treatment adherence and effective duration of treatment
-
-Let's assume that the probability that somebody stops his/her treatment
-increases with the number of days s/he's been taking the treatment:
-
-$$
-p_1(t) = \theta_1\frac{t^{h_1}}{K_1^{h_1} + t^{h_1}}
-$$
-
-But that it also increases with the number days left in the treatment:
-
-$$
-p_2(t) = \theta_2\frac{(d - t)^{h_2}}{K_2^{h_2} + (d - t)^{h_2}}
-$$
-where $d$ is the prescribed duration of treatment. Given that a person can drop
-for one of the two reason, the probability of dropping simply reads
-
-$$
-p(t, d) = p_1(t) + p_2(t) - p_1(t) \times p_2(t)
-$$
-
-From this we can express the probability that somebody stops his/her treatment
-**at time $t$** as
-
-$$
-P(t,d) = p(t,d)\prod_{x=0}^{{}^{-}t}(1 - p(x,d))^{dx}
-$$
-
-The probability distribution of the actual durations of treatment can then be
-expressed by:
-
-$$
-\varphi(t,d) = \frac{P(t,d)}{\int_{0}^d P(x,d)dx}
-$$
-
-Probability of dropping the treatment due to some fatigue effect:
-
-```{r}
-p1 <- function(t, theta1, h1, K1) {
-  theta1 * t^h1 / (K1^h1 + t^h1)
-}
-```
-
-Let's look at it:
-
-```{r}
-ts <- seq2(0, 40)
-K1 <- 15
-theta1 <- .8
-
-plot(NA, xlim = c(0, max(ts)), ylim = 0:1, xlab = "time in treatment (days)",
-     ylab = "probability")
-h1_val <- exp(seq(-3, 3))
-abline2(v = K1, col = "grey")
-abline2(h = theta1, col = "grey")
-walk2(h1_val, rev(RColorBrewer::brewer.pal(n = length(h1_val), "Spectral")),
-      ~ lines2(ts, p1(ts, theta1, h1 = .x, K1), col = .y))
-```
-
-Mitigation of the probability of dropping the treatment due to some
-*"finish line"* effect:
-
-```{r}
-p2 <- function(t, theta2, h2, K2) {
-  1 - theta2 * t^h2 / (K2^h2 + t^h2)
-}
-```
-
-Let's look at it:
-
-```{r}
-ts <- seq2(0, 40)
-plot2(ts, p2(ts, theta2 = 1, h2 = 50, K2 = 35), xlim = c(0, max(ts)), ylim = 0:1,
-      xlab = "time in treatment (days)", ylab = "mitigation factor")
-```
-
-
-
-
-```{r}
-p1 <- function(t, theta1, h1, K1) {
-  theta1 * t^h1 / (K1^h1 + t^h1)
-}
-
-p2 <- function(t, d, theta2, h2, K2) {
-  theta2 * (d - t)^h2 / (K2^h2 + (d - t)^h2)
-}
-
-durations <- function(d, theta1, theta2, h1, h2, K1, K2, le = 512) {
-  xs <- seq(0, d, le = le)
-  prob1 <- p1(xs, theta1, h1, K1)
-  prob2 <- p2(xs, d, theta2, h2, K2)
-  x <- prob1 + prob2 - prob1 * prob2
-  out <- c(x[1], x[-1] * cumprod(1 - x[-le]))
-  tibble(x = xs,
-         y = out / sum(out))
-}
-```
-
-Let's look at it:
-
-```{r fig.width = 7, fig.height = 5 / 2, margin = FALSE}
-treatment_duration <- 30
-theta1 <- .8
-h1 <- 5
-K1 <- 50
-theta2 <- .0003
-h2 <- 3
-K2 <- 20
-
-ts <- seq2(0, 30)
-
-plot4 <- function(...) plot2(..., xlab = "days since the start of treatment")
-plot5 <- function(...) plot2(..., xlab = "actual duration of treatment (days)")
-legend3 <- function(...) {
-  legend2(..., legend = c("fatigue", "finish line", "any cause"),
-          col = c(4, 2, 3))
-}
-
-prob1 <- p1(ts, theta1, h1, K1)
-prob2 <- p2(ts, treatment_duration, theta2, h2, K2)
-
-opar <- par(mfrow = c(1, 3))
-
-plot4(ds, prob1,
-      ylab = "probability of dropping treatment")
-lines2(ds, prob2)
-lines2(ds, prob1 + prob2 - prob1 * prob2, col = 3)
-legend3("topleft")
-
-plot4(ds, prob2, col = 2, ylim = c(0, .0003),
-      ylab = "probability of dropping treatment")
-lines2(ds, prob1, col = 4)
-lines2(ds, prob1 + prob2 - prob1 * prob2, col = 3)
-legend3("topright")
-
-with(durations(treatment_duration, theta1, theta2, h1, h2, K1, K2), {
-  plot5(x, y, ylab = "probability density")
-  polygon3(x, y)
-})
-par(opar)
-```
-
-**Figure 5:** the two probabilities of treatment adherence as a function of
-duration in the treatment (a) and duration left in the treatment (b) and the
-consequence of these probabilities on the distribution of the effective
-treatment duration (c).
-
-```{r}
-durations2 <- function(d, theta1, theta2, h1, h2, K1, K2, by = .05) {
-  xs <- seq(0, d, by)
-  prob1 <- p1(xs, theta1, h1, K1)
-  prob2 <- p2(xs, d, theta2, h2, K2)
-  x <- prob1 + prob2 - prob1 * prob2
-  out <- c(x[1], x[-1] * cumprod(1 - x[-length(xs)]))
-  tibble(x = xs,
-         y = out / sum(out))
-}
-```
-
-```{r}
-with(durations2(10, theta1, theta2, h1, h2, K1, K2), {
-  plot5(x, y, ylab = "probability density", xlim = c(0, 30))
-  polygon3(x, y, col = 4)
-})
-
-with(durations2(20, theta1, theta2, h1, h2, K1, K2), {
-  lines2(x, y, col = 3)
-  polygon3(x, y, col = 3)
-})
-
-with(durations2(30, theta1, theta2, h1, h2, K1, K2), {
-  lines2(x, y, col = 2)
-  polygon3(x, y, col = 2)
-})
-
-legend2("topright", legend = paste0(10 * 1:3, " days proposed"), col = 4:2)
-```
-
-```{r}
-with(durations2(10, theta1, theta2, h1, h2, K1, K2), {
-  plot5(x, y, ylab = "probability density", xlim = c(0, 30))
-  polygon3(x, y)
-})
-
-walk(10 * 2:10,
-     ~ with(durations2(.x, theta1, theta2, h1, h2, K1, K2), {
-         lines2(x, y, col = 4)
-         polygon3(x, y)
-       })
-)
-```
-
-```{r}
-with(durations2(10, theta1, theta2, h1, h2, K1, K2), {
-  plot5(x, y, ylab = "probability density", xlim = c(0, 30))
-  polygon3(x, y)
-})
-
-walk(11:30,
-     ~ with(durations2(.x, theta1, theta2, h1, h2, K1, K2), {
-         lines2(x, y, col = 4)
-         polygon3(x, y)
-       })
-)
-```
-
-```{r}
-prob_any <- function(treatment_duration, ts, theta1, h1, K1, theta2, h2, K2) {
-  prob1 <- p1(ts, theta1, h1, K1)
-  prob2 <- p2(ts, treatment_duration, theta2, h2, K2)
-  prob1 + prob2 - prob1 * prob2
-}
-```
-
-```{r}
-xs <- seq2(0, 100)
-plot4(xs, prob_any(treatment_duration = 30, ts, theta1, h1, K1, theta2, h2, K2),
-      ylab = "probability of dropping treatment")
-walk(9:29, ~ lines(xs, prob_any(treatment_duration = .x, ts, theta1, h1, K1,
-                                 theta2, h2, K2), col = 4))
-```
-
-
-### 5.3 Treatment efficiency
+### 5.4 Treatment efficiency
 
 We can assume that the treatment efficiency as a function of the actual duration
 of treatment also follows a Hill equation:
@@ -906,15 +631,18 @@ $$
 In R:
 
 ```{r}
-efficiency <- function(phi, xi, k, H) {
-  xi * phi^k / (H^k + phi^k)
-}
+# to be removed
+
+#efficiency <- function(phi, xi, k, H) {
+#  xi * phi^k / (H^k + phi^k)
+#}
 ```
 
 Let's look at it:
 
 ```{r}
-plot5(ts, efficiency(ts, 1, 1, 10), ylim = 0:1, ylab = "treatment efficiency")
+ts <- seq2(0, 30)
+plot5(ts, hill(ts, 10, 1, 1), ylim = 0:1, ylab = "treatment efficiency")
 ```
 
 **Figure 6:** modelled treatment efficacy as a function of the effective
@@ -926,14 +654,26 @@ By putting everything together, we can express the probability of successful
 prophylactic treatment of infected as
 
 $$
-\chi(d) = \tau\xi\frac{\varphi(d)^k}{H^k + \varphi(d)^k} \upsilon(d)
+\chi(d) = \tau \times \upsilon(d) \times \varepsilon(\delta(d)) 
 $$
-where $\tau$ is the proportion of infected that can be identified through
-contact tracing. From this, it comes that the rate $\pi(d)$ can be expressed as
+
+where
+
+* $\tau$ is the proportion of infected that can be identified through contact
+tracing;
+* $\upsilon(d)$ is the treatment uptake as a function of the proposed
+treatment duration $d$;
+* $\delta(d)$ is the effective treatment duration as a function of the proposed
+treatment duration $d$;
+* $\varepsilon(\delta(d))$ is the treatment efficacy as a function of the
+effective treatment duration $\delta(d)$.
+
+From this, it comes that the rate $\pi(d)$ can be expressed as
 
 $$
 \pi(d) = \frac{\chi(d)}{1 - \chi(d)}(\sigma + \gamma)
 $$
+
 This expression of $\pi(d)$ can be fed into the expression of $D*$ to get the
 effect of the duration of the proposed prophylactic treatment on the number $D*$
 of people with TB:
@@ -945,58 +685,131 @@ $$
 
 #### 5.4.1 Mean-field model prediction
 
-In R:
-
 ```{r}
-tb_cases <- function(
-    tau = .45, # probable range between 30 and 60%
-    treatment_duration = 30,
-    theta1 = .8,
-    h1 = 3,
-    K1 = 20,
-    theta2 = .1,
-    h2 = 3,
-    K2 = 20,
-    Y = 1,
-    U = 15,
-    u = 4,
-    xi = 1,
-    k = 1,
-    H = 10,
-    p = .9, E = 2, # p% of people developing disease doing so within E years
-    x = .04, # proportion of I that will become D (3 to 5%)
-    I = .25, # prevalence of I (between 10 and 40%)
-    D = 450 / 200000, # prevalence of D (between 150 and 300 / 100,000)
-    q = .15, # proportion of "recovered" D that actually goes to I instead of S
-    N = 1e5) { # population size
-
+tb_cases <- function(pd = 40, # proposed treatment duration
+                     tau = .45, # contact tracing efficacy (30-60%)
+                     Xu = 15, Yu = 1, hu = 4, # treatment uptake
+                     Xf = 25, Yf = .8, hf = 7, # fatigue effect
+                     Xmp = .875, Ym = 1, hm = 50, # mitigation effect
+                     Xe = 10, Ye = 1, he = 1, # treatment efficacy
+                     p = .9, E = 2, # p% of people developing disease doing so within E years
+                     x = .04, # proportion of I that will become D (3 to 5%)
+                     I = .25, # prevalence of I (between 10 and 40%)
+                     D = 450 / 200000, # prevalence of D (between 150 and 300 / 100,000)
+                     q = .15, # proportion of "recovered" D that actually goes to I instead of S
+                     N = 1e5, # population size
+                     by = pd / (le - 1), le = 512) { # integration
+  
   parms <- parameters_values(p, E, x, I, D, q)
   sigma <- parms["sigma"]
   gamma <- parms["gamma"]
   
-  phis <- durations(treatment_duration, theta1, theta2, h1, h2, K1, K2)
-  d <- with(phis, sum(x * y))
-  chi <- tau * uptake(d, Y, U, u) * efficiency(d, xi, k, H)
-  pis <- chi * (sigma + gamma) / (1 - chi)
+  ts <- seq(0, pd, by)
+  drop_prob <- hill(ts, Xf, Yf, hf) * (1 - hill(ts, Xmp * pd, Ym, hm))
+  tmp <- c(drop_prob[1], drop_prob[-1] * cumprod(1 - drop_prob[-length(drop_prob)]))
+  dens_prob <- tmp / sum(tmp)
   
-  d_star(gamma, sigma, parms["delta"], parms["beta"], q, pis, N)
+  chi <- tau * (1 - hill(pd, Xu, Yu, hu)) * hill(sum(ts * dens_prob), Xe, Ye, he)
+  pi <- chi * (sigma + gamma) / (1 - chi)
+  
+  d_star(gamma, sigma, parms["delta"], parms["beta"], q, pi, N)
 }
 ```
 
+Let's try it:
 
 ```{r}
 xs <- seq2(0, 100)
-ys <- map_dbl(xs,
-              ~ tb_cases(treatment_duration = .x, h1 = 5, K1 = 50, theta2 = .0003))
-plot2(xs, ys, xlab = "duration of proposed prophylactic treatment (days)",
-      ylab = "TB prevalence (per 100,000)", ylim = c(0, max(ys, na.rm = TRUE)))
+ys <- map_dbl(xs, tb_cases)
+plot2(xs, ys, ylim = c(0, max(ys, na.rm = TRUE)),
+      xlab = "proposed duration of prophylactic treatment (days)",
+      ylab = "TB prevalence (per 100,000)")
 ```
 
 **Figure 7:** tuberculosis prevalence as a function of proposed duration of
 prophylactic treatment.
 
+#### 5.4.2 Including the distribution of effective treatment time
+
+```{r}
+duration2incidence <- function(
+    ed, # effective duration
+    pd = 40, # proposed treatment duration
+    tau = .45, # contact tracing efficacy (30-60%)
+    Xu = 15, Yu = 1, hu = 4, # treatment uptake
+    Xe = 10, Ye = 1, he = 1, # treatment efficacy
+    gamma, sigma, delta, beta, # epidemiological parameters
+    q = .15, # proportion of "recovered" D that actually goes to I instead of S
+    N = 1e5) {  # population size
+  chi <- tau * (1 - hill(pd, Xu, Yu, hu)) * hill(ed, Xe, Ye, he)
+  d_star(gamma, sigma, delta, beta, q, chi * (sigma + gamma) / (1 - chi), N)
+}
+```
+
+
+```{r}
+tb_cases2 <- function(pd = 40, # proposed treatment duration
+                      tau = .45, # contact tracing efficacy (30 to 60%)
+                      Xu = 15, Yu = 1, hu = 4, # treatment uptake
+                      Xf = 25, Yf = .8, hf = 7, # fatigue effect
+                      Xmp = .875, Ym = 1, hm = 50, # mitigation effect
+                      Xe = 10, Ye = 1, he = 1, # treatment efficacy
+                      p = .9, E = 2, # p% of people developing disease doing so within E years
+                      x = .04, # proportion of I that will become D (3 to 5%)
+                      I = .25, # prevalence of I (between 10 and 40%)
+                      D = 450 / 200000, # prevalence of D (150 to 300 / 100,000)
+                      q = .15, # proportion of "recovered" D that actually goes to I instead of S
+                      N = 1e5, # population size
+                      n = 1e3,
+                      by = pd / (le - 1), le = 512) { # integration
+  
+  parms <- parameters_values(p, E, x, I, D, q)
+  sigma <- parms["sigma"]
+  gamma <- parms["gamma"]
+  
+  ts <- seq(0, pd, by)
+  drop_prob <- hill(ts, Xf, Yf, hf) * (1 - hill(ts, Xmp * pd, Ym, hm))
+
+  draws <- c(drop_prob[1], drop_prob[-1] * cumprod(1 - drop_prob[-length(drop_prob)])) |>
+    draw(n) |> 
+    table()
+  
+  ts[as.numeric(names(draws))] |> 
+    map_dbl(~ duration2incidence(.x, pd, tau, Xu, Yu, hu, Xe, Ye, he, gamma,
+                                 sigma, parms["delta"], parms["beta"], q, N)) |> 
+    rep(draws)
+    
+}
+```
+
+```{r}
+xs <- seq2(1, 100)
+probs <- 0:10 / 10
+
+ys <- xs |>
+  mclapply(function(x) quantile(tb_cases2(x, n = 1e5, le = 1e4), probs),
+           mc.cores = detectCores() - 1) |> 
+  bind_rows()
+```
+
+```{r}
+plot(NA, xlim = c(0, max(xs)), ylim = c(0, max(ys)))
+nbcol <- length(probs)
+i <- (nbcol - 1) /2
+walk(1:i, ~ polygon2(xs, ys[[.x]], ys[[nbcol - .x]], alpha = .2))
+lines(xs, ys[[i + 1]], col = 4)
+```
+
+
+
+
 
 #### 5.4.2 Including the distribution of effective treatment time
+
+```{r setup2, include = FALSE}
+knitr::opts_chunk$set(eval = FALSE)
+```
+
 
 A function that converts a duration into incidence:
 
