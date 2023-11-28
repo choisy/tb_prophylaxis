@@ -11,7 +11,7 @@ editor_options:
 
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(echo       = TRUE,
-                      cache      = FALSE,
+                      cache      = TRUE,
                       autodep    = TRUE,
                       message    = FALSE,
                       warning    = FALSE,
@@ -170,14 +170,7 @@ mclapply2 <- function(...)
 A few utilitary functions:
 
 ```{r}
-polygon2 <- function(x, y1, y2, col = 4, alpha = .2, ...) {
-  polygon(c(x, rev(x)), c(y1, rev(y2)), border = NA,
-          col = adjustcolor(col, alpha), ...)
-}
-```
-
-```{r}
-polygon3 <- function(x, y, col = 4, alpha = .2, ...) {
+polygon2 <- function(x, y, col = 4, alpha = .2, ...) {
   polygon(c(x[1], x, tail(x, 1)), c(0, y, 0), col = adjustcolor(col, alpha),
           border = NA)
 }
@@ -585,7 +578,7 @@ Let's try it:
 ```{r}
 with(effective_duration(), {
   plot4(x, y, ylab = "probability density")
-  polygon3(x, y)
+  polygon2(x, y)
 })
 ```
 
@@ -621,7 +614,7 @@ explore_dropping <- function(
        ylab = "probability density")
   walk(eds, ~ with(.x, {
     lines2(.x$x, .x$y, col = 4)
-    polygon3(x, y)
+    polygon2(x, y)
   }))
   abline2(v = proposed_durations, col = "grey")
   
@@ -676,10 +669,6 @@ treatment duration.
 
 By putting everything together, we can express the density of probability of the 
 efficacy of the prophylactic treatment policy as
-
-$$
-\chi(d) = \tau \times \upsilon(d) \times \varepsilon(\rho(d)) 
-$$
 
 $$
 \chi(d) = \tau \times \upsilon(d) \times \int_0^d \varepsilon(x)\varphi(x, d) dx
@@ -792,3 +781,9 @@ walk2(ys, rev(RColorBrewer::brewer.pal(n = length(ys), "Spectral")),
 
 **Figure 7:** tuberculosis prevalence as a function of proposed duration of
 prophylactic treatment.
+
+```{r}
+
+```
+
+## Bottom
