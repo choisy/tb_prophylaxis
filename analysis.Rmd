@@ -153,6 +153,8 @@ seq2 <- function(...) seq(..., le = 512)
 
 plot2 <- function(..., col = 4) plot(..., type = "l", lwd = lwd_val, col = col)
 
+plot3 <- function(...) plot2(..., xlab = "time (years)")
+
 lines2 <- function(..., col = 2) lines(..., lwd = lwd_val, col = col)
 
 legend2 <- function(...) legend(..., lty = 1, lwd = lwd_val, bty = "n")
@@ -163,7 +165,7 @@ abline2 <- function(..., col = 2) abline(..., lwd = lwd_val, col = col)
 A few utilitary functions:
 
 ```{r}
-polygon2 <- function(x, y1, y2, col = 4, alpha = .1, ...) {
+polygon2 <- function(x, y1, y2, col = 4, alpha = .2, ...) {
   polygon(c(x, rev(x)), c(y1, rev(y2)), border = NA,
           col = adjustcolor(col, alpha), ...)
 }
@@ -314,17 +316,15 @@ pi <- 0 # in absence of prophylaxis
 
 sims <- model(S0, I0, D0, beta, sigma, gamma, delta, q, pi, seq2(0, 50))
 
-plot3 <- function(...) plot2(..., xlab = "time (years)")
-abline3 <- function(...) abline2(..., col = 2)
 N <- S0 + I0 + D0
 
 opar <- par(mfrow = c(1, 3))
 with(sims, plot3(time, S, ylab = "susceptibles S"))
-abline3(h = s_star(gamma, sigma, delta, beta, q, pi, N))
+abline2(h = s_star(gamma, sigma, delta, beta, q, pi, N))
 with(sims, plot3(time, I, ylab = "infected non-diseased I"))
-abline3(h = i_star(gamma, sigma, delta, beta, q, pi, N))
+abline2(h = i_star(gamma, sigma, delta, beta, q, pi, N))
 with(sims, plot3(time, D, ylab = "diseased D"))
-abline3(h = d_star(gamma, sigma, delta, beta, q, pi, N))
+abline2(h = d_star(gamma, sigma, delta, beta, q, pi, N))
 par(opar)
 ```
 
@@ -407,11 +407,11 @@ sims <- model(S0, I0, D0, beta, sigma, gamma, delta, q, 0, seq2(0, 5))
 
 opar <- par(mfrow = c(1, 3))
 with(sims, plot3(time, S, ylab = "susceptibles S"))
-abline3(h = s_star(gamma, sigma, delta, beta, q, pi, N))
+abline2(h = s_star(gamma, sigma, delta, beta, q, pi, N))
 with(sims, plot3(time, I, ylab = "infected non-diseased I"))
-abline3(h = i_star(gamma, sigma, delta, beta, q, pi, N))
+abline2(h = i_star(gamma, sigma, delta, beta, q, pi, N))
 with(sims, plot3(time, D, ylab = "diseased D"))
-abline3(h = d_star(gamma, sigma, delta, beta, q, pi, N))
+abline2(h = d_star(gamma, sigma, delta, beta, q, pi, N))
 par(opar)
 ```
 
@@ -479,7 +479,7 @@ treatment duration.
 #  (U^u + (1 - Y) * d^u) / (U^u + d^u)
 #}
 
-uptake <- function(d, Y, U, u) 1 - hill(d, U, Y, u)
+#uptake <- function(d, Y, U, u) 1 - hill(d, U, Y, u)
 ```
 
 
@@ -625,21 +625,6 @@ abline2(v = proposed_durations, col = color_values)
 We can assume that the treatment efficiency as a function of the actual duration
 of treatment also follows a Hill equation:
 
-$$
-\varepsilon(\varphi) = \xi\frac{\varphi^k}{H^k + \varphi^k}
-$$
-In R:
-
-```{r}
-# to be removed
-
-#efficiency <- function(phi, xi, k, H) {
-#  xi * phi^k / (H^k + phi^k)
-#}
-```
-
-Let's look at it:
-
 ```{r}
 ts <- seq2(0, 30)
 plot5(ts, hill(ts, 10, 1, 1), ylim = 0:1, ylab = "treatment efficiency")
@@ -683,53 +668,6 @@ D^*(d) = \frac{\beta - (1 - q + (\gamma + \pi(d)) / \sigma)\delta}
 {(1 + \delta / \sigma)\beta}N
 $$
 
-#### 5.4.1 Mean-field model prediction
-
-```{r}
-tb_cases <- function(pd = 40, # proposed treatment duration
-                     tau = .45, # contact tracing efficacy (30-60%)
-                     Xu = 15, Yu = 1, hu = 4, # treatment uptake
-                     Xf = 25, Yf = .8, hf = 7, # fatigue effect
-                     Xmp = .875, Ym = 1, hm = 50, # mitigation effect
-                     Xe = 10, Ye = 1, he = 1, # treatment efficacy
-                     p = .9, E = 2, # p% of people developing disease doing so within E years
-                     x = .04, # proportion of I that will become D (3 to 5%)
-                     I = .25, # prevalence of I (between 10 and 40%)
-                     D = 450 / 200000, # prevalence of D (between 150 and 300 / 100,000)
-                     q = .15, # proportion of "recovered" D that actually goes to I instead of S
-                     N = 1e5, # population size
-                     by = pd / (le - 1), le = 512) { # integration
-  
-  parms <- parameters_values(p, E, x, I, D, q)
-  sigma <- parms["sigma"]
-  gamma <- parms["gamma"]
-  
-  ts <- seq(0, pd, by)
-  drop_prob <- hill(ts, Xf, Yf, hf) * (1 - hill(ts, Xmp * pd, Ym, hm))
-  tmp <- c(drop_prob[1], drop_prob[-1] * cumprod(1 - drop_prob[-length(drop_prob)]))
-  dens_prob <- tmp / sum(tmp)
-  
-  chi <- tau * (1 - hill(pd, Xu, Yu, hu)) * hill(sum(ts * dens_prob), Xe, Ye, he)
-  pi <- chi * (sigma + gamma) / (1 - chi)
-  
-  d_star(gamma, sigma, parms["delta"], parms["beta"], q, pi, N)
-}
-```
-
-Let's try it:
-
-```{r}
-xs <- seq2(0, 100)
-ys <- map_dbl(xs, tb_cases)
-plot2(xs, ys, ylim = c(0, max(ys, na.rm = TRUE)),
-      xlab = "proposed duration of prophylactic treatment (days)",
-      ylab = "TB prevalence (per 100,000)")
-```
-
-**Figure 7:** tuberculosis prevalence as a function of proposed duration of
-prophylactic treatment.
-
-#### 5.4.2 Including the distribution of effective treatment time
 
 ```{r}
 duration2incidence <- function(
@@ -748,20 +686,21 @@ duration2incidence <- function(
 
 
 ```{r}
-tb_cases2 <- function(pd = 40, # proposed treatment duration
-                      tau = .45, # contact tracing efficacy (30 to 60%)
-                      Xu = 15, Yu = 1, hu = 4, # treatment uptake
-                      Xf = 25, Yf = .8, hf = 7, # fatigue effect
-                      Xmp = .875, Ym = 1, hm = 50, # mitigation effect
-                      Xe = 10, Ye = 1, he = 1, # treatment efficacy
-                      p = .9, E = 2, # p% of people developing disease doing so within E years
-                      x = .04, # proportion of I that will become D (3 to 5%)
-                      I = .25, # prevalence of I (between 10 and 40%)
-                      D = 450 / 200000, # prevalence of D (150 to 300 / 100,000)
-                      q = .15, # proportion of "recovered" D that actually goes to I instead of S
-                      N = 1e5, # population size
-                      n = 1e3,
-                      by = pd / (le - 1), le = 512) { # integration
+tb_cases <- function(
+    pd = 40, # proposed treatment duration
+    tau = .45, # contact tracing efficacy (30 to 60%)
+    Xu = 15, Yu = 1, hu = 4, # treatment uptake
+    Xf = 25, Yf = .8, hf = 7, # fatigue effect
+    Xmp = .875, Ym = 1, hm = 50, # mitigation effect
+    Xe = 10, Ye = 1, he = 1, # treatment efficacy
+    p = .9, E = 2, # p% of people developing disease doing so within E years
+    x = .04, # proportion of I that will become D (3 to 5%)
+    I = .25, # prevalence of I (between 10 and 40%)
+    D = 450 / 200000, # prevalence of D (150 to 300 / 100,000)
+    q = .15, # proportion of "recovered" D that actually goes to I instead of S
+    N = 1e5, # population size
+    n = 1e3, # number of draws to sample the distribution of the effective durations
+    by = pd / (le - 1), le = 512) { # integration
   
   parms <- parameters_values(p, E, x, I, D, q)
   sigma <- parms["sigma"]
@@ -787,7 +726,7 @@ xs <- seq2(1, 100)
 probs <- 0:10 / 10
 
 ys <- xs |>
-  mclapply(function(x) quantile(tb_cases2(x, n = 1e5, le = 1e4), probs),
+  mclapply(function(x) quantile(tb_cases(x, n = 1e5, le = 1e4), probs),
            mc.cores = detectCores() - 1) |> 
   bind_rows()
 ```
@@ -796,121 +735,9 @@ ys <- xs |>
 plot(NA, xlim = c(0, max(xs)), ylim = c(0, max(ys)))
 nbcol <- length(probs)
 i <- (nbcol - 1) /2
-walk(1:i, ~ polygon2(xs, ys[[.x]], ys[[nbcol - .x]], alpha = .2))
+walk(1:i, ~ polygon2(xs, ys[[.x]], ys[[nbcol - .x]]))
 lines(xs, ys[[i + 1]], col = 4)
 ```
 
-
-
-
-
-#### 5.4.2 Including the distribution of effective treatment time
-
-```{r setup2, include = FALSE}
-knitr::opts_chunk$set(eval = FALSE)
-```
-
-
-A function that converts a duration into incidence:
-
-```{r}
-duration2incidence <- function(
-    d, 
-    tau = .45, # probable range between 30 and 60%
-    Y = 1,
-    U = 15,
-    u = 4,
-    xi = 1,
-    k = 1,
-    H = 10,
-    sigma,
-    gamma,
-    delta,
-    beta,
-    q = .15, # proportion of "recovered" D that actually goes to I instead of S
-    N = 1e5) { # population size
-  
-  chi <- tau * uptake(d, Y, U, u) * efficiency(d, xi, k, H)
-  pis <- chi * (sigma + gamma) / (1 - chi)
-  d_star(gamma, sigma, delta, beta, q, pis, N)
-}
-```
-
-A new version of the `tb_cases()` function that integrates the distribution of
-the effective durations of treatment:
-
-```{r}
-tb_cases_dstr <- function(
-    tau = .45, # probable range between 30 and 60%
-    treatment_duration = 30,
-    theta1 = .8,
-    h1 = 3,
-    K1 = 20,
-    theta2 = .1,
-    h2 = 3,
-    K2 = 20,
-    Y = 1,
-    U = 15,
-    u = 4,
-    xi = 1,
-    k = 1,
-    H = 10,
-    p = .9, E = 2, # p% of people developing disease doing so within E years
-    x = .04, # proportion of I that will become D (3 to 5%)
-    I = .25, # prevalence of I (between 10 and 40%)
-    D = 450 / 200000, # prevalence of D (between 150 and 300 / 100,000)
-    q = .15, # proportion of "recovered" D that actually goes to I instead of S
-    N = 1e5, # population size
-    n = 1e3,
-    le = 1e4) {
-
-  parms <- parameters_values(p, E, x, I, D, q)
-  sigma <- parms["sigma"]
-  gamma <- parms["gamma"]
-  delta <- parms["delta"]
-  beta  <- parms["beta"]
-  
-  phis <- durations(treatment_duration, theta1, theta2, h1, h2, K1, K2, le)
-  
-  map_dbl(phis$x[draw(phis$y, n)],
-          ~ duration2incidence(.x, tau, Y, U, u, xi, k, H, sigma, gamma, delta,
-                               beta, q, N))
-}
-```
-
-Generating the data, takes about 30":
-
-```{r eval = FALSE}
-xs <- seq2(0, 100)[-1]
-ys <- mclapply(xs,
-               function(x)
-                 tb_cases_dstr(treatment_duration = x, h1 = 5, K1 = 50, theta2 = .0003, n = 1e4),
-               mc.cores = detectCores() - 1)
-```
-
-The plot:
-
-```{r eval = FALSE}
-cis <- c(1:9 / 10, .95)
-
-cis <- sort(cis, TRUE)
-
-tmp <- (1 - cis) / 2
-
-qtls <- map_dfr(ys, ~ quantile(.x, c(tmp, .5, rev(1 - tmp))))
-
-plot2(NA, xlab = "duration of proposed prophylactic treatment (days)",
-      ylab = "TB prevalence (per 100,000)",
-      xlim = c(0, max(xs)),
-      ylim = c(0, max(qtls[, ncol(qtls)], na.rm = TRUE)))
-
-le <- length(cis)
-nbcol <- 2 * le + 2
-walk(seq_along(cis), ~ polygon2(xs, qtls[[.x]], qtls[[nbcol - .x]]))
-
-lines2(xs, qtls[[le + 1]], col = 4)
-
-xs2 <- seq2(0, 100)
-ys2 <- map_dbl(xs2, ~ tb_cases(treatment_duration = .x, h1 = 5, K1 = 50, theta2 = .0003))
-lines2(xs2, ys2)
-```
+**Figure 7:** tuberculosis prevalence as a function of proposed duration of
+prophylactic treatment.
