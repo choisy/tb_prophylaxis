@@ -587,7 +587,6 @@ with(effective_duration(), {
 ```
 
 
-
 ```{r}
 pd <- 40
 Xf <- 100
@@ -598,7 +597,6 @@ Ym <- 1
 hm <- 50
 by <- .1
 proposed_durations <- c(20, 40, 60, 70, 80)
-color_values <- seq_along(proposed_durations) + 1
 
 eds <- map(proposed_durations,
            ~ effective_duration(.x, Xf, Yf, hf, Xmp, Ym, hm, by))
@@ -609,12 +607,12 @@ plot(NA,
      xlab = "effective duration of treatment (days)",
      ylab = "probability density")
 
-walk2(eds, color_values, ~ with(.x, {
-  lines2(.x$x, .x$y, col = .y)
-  polygon3(x, y, col = .y)
+walk(eds, ~ with(.x, {
+  lines2(.x$x, .x$y, col = 4)
+  polygon3(x, y)
 }))
 
-abline2(v = proposed_durations, col = color_values)
+abline2(v = proposed_durations)
 ```
 
 
