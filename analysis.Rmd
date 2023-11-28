@@ -735,7 +735,9 @@ ys <- xs |>
 ```
 
 ```{r}
-plot(NA, xlim = c(0, max(xs)), ylim = c(0, max(ys)))
+plot(NA, xlim = c(0, max(xs)), ylim = c(0, max(ys)),
+     xlab = "proposed duration of prophylactic treatment (days)",
+     ylab = "TB prevalence (/100,000)")
 nbcol <- length(probs)
 i <- (nbcol - 1) /2
 walk(1:i, ~ polygon2(xs, ys[[.x]], ys[[nbcol - .x]]))
