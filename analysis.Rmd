@@ -502,7 +502,7 @@ $$
 P(t) = p(t)\prod_{x=0}^{{}^{-}t}(1 - p(x))^{dx}
 $$
 
-The probability distribution of the actual durations of treatment (*aka*
+The density of probability of the actual duration of treatment (*aka*
 **effective durations of treatment**) can then be expressed by:
 
 $$
@@ -674,11 +674,15 @@ treatment duration.
 
 ### 5.5 Putting everything together
 
-By putting everything together, we can express the probability of successful
-prophylactic treatment of infected as
+By putting everything together, we can express the density of probability of the 
+efficacy of the prophylactic treatment policy as
 
 $$
 \chi(d) = \tau \times \upsilon(d) \times \varepsilon(\rho(d)) 
+$$
+
+$$
+\chi(d) = \tau \times \upsilon(d) \times \int_0^d \varepsilon(x)\varphi(x, d) dx
 $$
 
 where
@@ -687,10 +691,10 @@ where
 tracing;
 * $\upsilon(d)$ is the treatment uptake as a function of the proposed
 treatment duration $d$;
-* $\rho(d)$ is the effective treatment duration as a function of the proposed
-treatment duration $d$;
-* $\varepsilon(\rho(d))$ is the treatment efficacy as a function of the
-effective treatment duration $\rho(d)$.
+* $\varepsilon(x)$ is the treatment efficacy as a function of an effective
+treatment duration $x$;
+* $\varphi(x, d)$ is the density of probability of an effective treatment
+duration $x$, given a proposed duration $d$.
 
 From this, it comes that the rate $\pi(d)$ can be expressed as
 
@@ -760,54 +764,31 @@ tb_cases <- function(
     get_val(ts) |> 
     map_dbl(~ duration2incidence(.x, pd, tau, Xu, Yu, hu, Xe, Ye, he, gamma,
                                  sigma, parms["delta"], parms["beta"], q, N)) |> 
-    rep(draws)
+    rep(draws) |> 
+    mean()
 }
 ```
 
-
-
 ```{r}
-xs <- seq2(1, 100)
-probs <- 0:10 / 10
+xs <- seq2(.001, 100)
 
-ys <- xs |>
-  mclapply2(function(x) quantile(tb_cases(x), probs)) |> 
-  bind_rows()
+tau_sensitivity <- function(tau_val) {
+  map_dbl(xs, ~ tb_cases(.x, tau = tau_val))
+}
 ```
 
 ```{r}
-ys2 <- xs |>
-  mclapply2(function(x) quantile(tb_cases(x, tau = .3), probs)) |> 
-  bind_rows()
+ys <- mclapply2(seq(.3, .6, .03), tau_sensitivity)
 ```
 
 ```{r}
-ys3 <- xs |>
-  mclapply2(function(x) quantile(tb_cases(x, tau = .6), probs)) |> 
-  bind_rows()
-```
-
-
-```{r}
-plot(NA, xlim = c(0, max(xs)), ylim = c(0, max(ys)),
+plot(NA, xlim = c(0, max(xs)), ylim = c(0, max(unlist(ys))),
      xlab = "proposed duration of prophylactic treatment (days)",
      ylab = "TB prevalence (/100,000)")
-nbcol <- length(probs)
-i <- (nbcol - 1) /2
 
-walk(1:i, ~ polygon2(xs, ys[[.x]], ys[[nbcol - .x]]))
-lines(xs, ys[[i + 1]], col = 4)
-
-walk(1:i, ~ polygon2(xs, ys2[[.x]], ys2[[nbcol - .x]], col = 2))
-lines(xs, ys2[[i + 1]], col = 2)
-
-walk(1:i, ~ polygon2(xs, ys3[[.x]], ys3[[nbcol - .x]], col = 3))
-lines(xs, ys3[[i + 1]], col = 3)
-
-legend2("right", title = "contact tracing efficacies:",
-        legend = c("30 %", "45 %", "60 %"), col = c(2, 4, 3))
+walk2(ys, rev(RColorBrewer::brewer.pal(n = length(ys), "Spectral")),
+      ~ lines2(xs, .x, col = .y))
 ```
-
 
 **Figure 7:** tuberculosis prevalence as a function of proposed duration of
 prophylactic treatment.
