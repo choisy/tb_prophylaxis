@@ -590,42 +590,74 @@ with(effective_duration(), {
 ```
 
 
-```{r fig.height = 7}
-Xf <- 100
-Yf <- .8
-hf <- 7
-Xmp <- .875
-Ym <- 1
-hm <- 50
-by <- .1
-proposed_durations <- c(20, 40, 60, 70, 80)
+```{r}
+explore_dropping <- function(
+    Xf = 100,
+    Yf = .8,
+    hf = 7,
+    Xmp = .875,
+    Ym = 1,
+    hm = 50,
+    by = .1,
+    ylim = c(0, .2),
+    proposed_durations = c(20, 40, seq(60, 100, 10))) {
 
-proposed_durations <- sort(proposed_durations)
+  proposed_durations <- sort(proposed_durations)
 
-eds <- map(proposed_durations,
-           ~ effective_duration(.x, Xf, Yf, hf, Xmp, Ym, hm, by))
-
-opar <- par(mfrow = 2:1)
-
-probabilities(tail(proposed_durations, 1), Xf, Yf, hf, Xmp, Ym, hm, lwd = 4,
-              ylim = c(0, .05), lgnd = FALSE)
-walk(head(proposed_durations, -1),
-     ~ probabilities(.x, Xf, Yf, hf, Xmp, Ym, hm, add = TRUE))
-
-plot(NA,
-     xlim = c(0, max(proposed_durations)),
-     ylim = c(0, max(unlist(map(eds, ~ .x$y)))),
-     xlab = "effective duration of treatment (days)",
-     ylab = "probability density")
-walk(eds, ~ with(.x, {
-  lines2(.x$x, .x$y, col = 4)
-  polygon3(x, y)
-}))
-abline2(v = proposed_durations)
-
-par(opar)
+  eds <- map(proposed_durations,
+             ~ effective_duration(.x, Xf, Yf, hf, Xmp, Ym, hm, by))
+  
+  opar <- par(mfrow = 2:1)
+  
+  probabilities(tail(proposed_durations, 1), Xf, Yf, hf, Xmp, Ym, hm, lwd = 4,
+                ylim = ylim, lgnd = FALSE)
+  walk(head(proposed_durations, -1),
+       ~ probabilities(.x, Xf, Yf, hf, Xmp, Ym, hm, add = TRUE))
+  
+  plot(NA,
+       xlim = c(0, max(proposed_durations)),
+       ylim = c(0, max(unlist(map(eds, ~ .x$y)))),
+       xlab = "effective duration of treatment (days)",
+       ylab = "probability density")
+  walk(eds, ~ with(.x, {
+    lines2(.x$x, .x$y, col = 4)
+    polygon3(x, y)
+  }))
+  abline2(v = proposed_durations, col = "grey")
+  
+  par(opar)
+}
 ```
 
+```{r fig.height = 7}
+explore_dropping()
+```
+
+```{r fig.height = 7}
+explore_dropping(
+  Xf = 200,
+  Yf = .15,
+  hf = 7,
+  Xmp = .875,
+  Ym = 1,
+  hm = 50,
+  by = .1,
+  ylim = c(0, .0005),
+  proposed_durations = c(20, 40, seq(60, 100, 10)))
+```
+
+```{r fig.height = 7}
+explore_dropping(
+  Xf = 150,
+  Yf = .05,
+  hf = 7,
+  Xmp = .875,
+  Ym = 1,
+  hm = 50,
+  by = .1,
+  ylim = c(0, .001),
+  proposed_durations = c(20, 40, seq(60, 100, 10)))
+```
 
 ### 5.4 Treatment efficacy
 
@@ -646,7 +678,7 @@ By putting everything together, we can express the probability of successful
 prophylactic treatment of infected as
 
 $$
-\chi(d) = \tau \times \upsilon(d) \times \varepsilon(\delta(d)) 
+\chi(d) = \tau \times \upsilon(d) \times \varepsilon(\rho(d)) 
 $$
 
 where
@@ -655,10 +687,10 @@ where
 tracing;
 * $\upsilon(d)$ is the treatment uptake as a function of the proposed
 treatment duration $d$;
-* $\delta(d)$ is the effective treatment duration as a function of the proposed
+* $\rho(d)$ is the effective treatment duration as a function of the proposed
 treatment duration $d$;
-* $\varepsilon(\delta(d))$ is the treatment efficacy as a function of the
-effective treatment duration $\delta(d)$.
+* $\varepsilon(\rho(d))$ is the treatment efficacy as a function of the
+effective treatment duration $\rho(d)$.
 
 From this, it comes that the rate $\pi(d)$ can be expressed as
 
@@ -744,14 +776,38 @@ ys <- xs |>
 ```
 
 ```{r}
+ys2 <- xs |>
+  mclapply2(function(x) quantile(tb_cases(x, tau = .3), probs)) |> 
+  bind_rows()
+```
+
+```{r}
+ys3 <- xs |>
+  mclapply2(function(x) quantile(tb_cases(x, tau = .6), probs)) |> 
+  bind_rows()
+```
+
+
+```{r}
 plot(NA, xlim = c(0, max(xs)), ylim = c(0, max(ys)),
      xlab = "proposed duration of prophylactic treatment (days)",
      ylab = "TB prevalence (/100,000)")
 nbcol <- length(probs)
 i <- (nbcol - 1) /2
+
 walk(1:i, ~ polygon2(xs, ys[[.x]], ys[[nbcol - .x]]))
 lines(xs, ys[[i + 1]], col = 4)
+
+walk(1:i, ~ polygon2(xs, ys2[[.x]], ys2[[nbcol - .x]], col = 2))
+lines(xs, ys2[[i + 1]], col = 2)
+
+walk(1:i, ~ polygon2(xs, ys3[[.x]], ys3[[nbcol - .x]], col = 3))
+lines(xs, ys3[[i + 1]], col = 3)
+
+legend2("right", title = "contact tracing efficacies:",
+        legend = c("30 %", "45 %", "60 %"), col = c(2, 4, 3))
 ```
+
 
 **Figure 7:** tuberculosis prevalence as a function of proposed duration of
 prophylactic treatment.
