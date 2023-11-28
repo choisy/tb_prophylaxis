@@ -518,6 +518,9 @@ probabilities <- function(
     pd = 40, # propsed duration of treatment
     Xf = 25, Yf = .8, hf = 7, # fatigue
     Xmp = .875, Ym = 1, hm = 50, # mitigation of fatigue
+    lwd = 2,
+    ylim = 0:1,
+    add = FALSE,
     lgnd = TRUE) { # whether to add the legend to the plot or not
   
   Xm <- Xmp * pd
@@ -526,13 +529,13 @@ probabilities <- function(
   fatigue <- hill(ts, Xf, Yf, hf)
   mitigation <- 1 - hill(ts, Xm, Ym, hm)
   
-  plot2(ts, fatigue, ylim = 0:1, col = 3,
-        xlab = "time in treatment (days)",
-        ylab = "probability or mitigation factor")
+  if (! add) plot(ts, fatigue, ylim = ylim, col = 3, type = "l", lwd = lwd,
+                  xlab = "time in treatment (days)",
+                  ylab = "probability or mitigation factor")
   lines2(ts, mitigation)
   lines2(ts, mitigation * fatigue, col = 4)
   
-  if (lgnd)
+  if (lgnd & ! add)
     legend2("topleft", col = c(3, 2, 4),
             legend = c("fatigue", "mitigation of fatigue", "dropping probability"))
 }
@@ -587,8 +590,7 @@ with(effective_duration(), {
 ```
 
 
-```{r}
-pd <- 40
+```{r fig.height = 7}
 Xf <- 100
 Yf <- .8
 hf <- 7
@@ -598,21 +600,30 @@ hm <- 50
 by <- .1
 proposed_durations <- c(20, 40, 60, 70, 80)
 
+proposed_durations <- sort(proposed_durations)
+
 eds <- map(proposed_durations,
            ~ effective_duration(.x, Xf, Yf, hf, Xmp, Ym, hm, by))
+
+opar <- par(mfrow = 2:1)
+
+probabilities(tail(proposed_durations, 1), Xf, Yf, hf, Xmp, Ym, hm, lwd = 4,
+              ylim = c(0, .05), lgnd = FALSE)
+walk(head(proposed_durations, -1),
+     ~ probabilities(.x, Xf, Yf, hf, Xmp, Ym, hm, add = TRUE))
 
 plot(NA,
      xlim = c(0, max(proposed_durations)),
      ylim = c(0, max(unlist(map(eds, ~ .x$y)))),
      xlab = "effective duration of treatment (days)",
      ylab = "probability density")
-
 walk(eds, ~ with(.x, {
   lines2(.x$x, .x$y, col = 4)
   polygon3(x, y)
 }))
-
 abline2(v = proposed_durations)
+
+par(opar)
 ```
 
 
