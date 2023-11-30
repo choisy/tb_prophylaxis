@@ -1,0 +1,23 @@
+---
+title: "Model v2.0"
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+    toc_depth: 4
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo       = TRUE,
+                      cache      = TRUE,
+                      autodep    = TRUE,
+                      message    = FALSE,
+                      warning    = FALSE,
+                      dev.args   = list(pointsize = 11),
+                      fig.height = 3.5,
+                      fig.width  = 4.24725,
+                      fig.retina = 2,
+                      fig.align  = "center")
+```
