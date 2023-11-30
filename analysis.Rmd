@@ -783,7 +783,27 @@ walk2(ys, rev(RColorBrewer::brewer.pal(n = length(ys), "Spectral")),
 prophylactic treatment.
 
 ```{r}
-
+maxval <- max(unlist(ys))
+plot2(seq(.3, .6, .03), (maxval - map_dbl(ys, min)) / maxval)
 ```
+
+```{r}
+xs2 <- seq(0, 1, le = 15)
+ys2 <- mclapply2(seq(0, 1, le = 15), tau_sensitivity)
+```
+
+```{r}
+maxval <- max(unlist(ys2))
+plot2(xs2, (maxval - map_dbl(ys2, min)) / maxval)
+```
+
+```{r}
+plot(NA, xlim = c(0, max(xs)), ylim = c(0, max(unlist(ys2))),
+     xlab = "proposed duration of prophylactic treatment (days)",
+     ylab = "TB prevalence (/100,000)")
+
+walk(ys2, ~ lines2(xs, .x))
+```
+
 
 ## Bottom
