@@ -4,3 +4,4 @@
 .Ruserdata
 analysis_cache/
 analysis_files/
+.DS_Store
