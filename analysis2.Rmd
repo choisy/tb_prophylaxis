@@ -9,9 +9,21 @@ editor_options:
   chunk_output_type: console
 ---
 
+
 ```{r setup, include = FALSE}
-knitr::opts_chunk$set(echo       = TRUE,
-                      cache      = TRUE,
+knitr::knit_hooks$set(
+  margin1 = function(before, options, envir) {
+    if (before) par(mgp = c(1.5, .5, 0), bty = "n", plt = c(.105, .97, .13, .97))
+    else NULL
+  },
+  margin2 = function(before, options, envir) {
+    if (before) par(mgp = c(1.5, .5, 0), bty = "n", plt = c(.2, .97, .2, .85))
+    else NULL
+  })
+
+knitr::opts_chunk$set(margin1    = TRUE,
+                      echo       = TRUE,
+                      cache      = FALSE,
                       autodep    = TRUE,
                       message    = FALSE,
                       warning    = FALSE,
@@ -22,6 +34,7 @@ knitr::opts_chunk$set(echo       = TRUE,
                       fig.align  = "center")
 ```
 
+
 ## Packages
 
 Required: `deSolve`, `tibble`
@@ -30,17 +43,31 @@ Required: `deSolve`, `tibble`
 library(tibble)
 ```
 
+
 ## Functions
 
 ```{r}
-ode2 <- function(...) {
-  deSolve::ode(...) |> 
-    as.data.frame() |> 
-    as_tibble()
+ode2 <- function(...) as_tibble(as.data.frame(deSolve::ode(...)))
+```
+
+```{r}
+seq2 <- function(...) seq(..., le = 512)
+```
+
+```{r}
+plot2 <- function(..., col = 4) plot(..., type = "l", lwd = 2, col = col)
+```
+
+```{r}
+plot3 <- function(x, y, ...) {
+  plot2(x, y, xlab = "time (years)", ylim = c(0, max(y)),
+        cex.lab = 1.5, cex.axis = 1.5, ...)
 }
 ```
 
+
 ## Epidemiological model
+
 
 **Variables:**
 
@@ -50,6 +77,7 @@ ode2 <- function(...) {
 * $I_3$: treated but not sterilized
 * $D$: sick and infectious
 * $N = S + I_1 + I_2 + I_3 + D$
+
 
 **Parameters:**
 
@@ -65,9 +93,11 @@ relapse)
 
 **Note:** all these rates are *per capita*
 
+
 **Flow diagram:**
 
 <div style="text-align:center"><img src ="SI1I2I3D.png" width="280"/></div>
+
 
 **Differential equations:**
 
@@ -80,6 +110,8 @@ $$
   \frac{dD}{dt}   &= \delta_1 I_1 + \delta_2 I_2 + \delta_3 I_3 - (\gamma + \rho) D
 \end{align}
 $$
+
+
 **Endemic equilibrium:**
 
 $$
@@ -98,12 +130,13 @@ $$
 \end{align}
 $$
 
+
 **R code for the differential equations:**
 
 ```{r}
 epidemiology <- function(
     S0, I10, I20, I30, D0,
-    beta, sigma1, sigma2, gamma, delta1, delta2, delta3, rho, times) {
+    beta, sigma1, sigma2, delta1, delta2, delta3, gamma, tau, rho, times) {
   
   N <- S0 + I10 + I20 + I30 + D0
   
@@ -118,18 +151,20 @@ epidemiology <- function(
            dI3 <- rho * D - delta3 * I3
            dD  <- delta1 * I1 + delta2 * I2 + delta3 * I3 - (gamma + rho) * D
            list(c(dS, dI1, dI2, dI3, dD))
-         })},
+         })
+       },
        c(beta = beta, gamma = gamma, rho = rho,
          sigma1 = sigma1, sigma2 = sigma2,
          delta1 = delta1, delta2 = delta2, delta3 = delta3))
 }
 ```
 
+
 **R code for the endemic equilibrium:**
 
 ```{r}
 equilibium <- function(
-    beta, sigma1, sigma2, gamma, delta1, delta2, delta3, rho, N) {
+    beta, sigma1, sigma2, delta1, delta2, delta3, gamma, tau, rho, N) {
   
   A <- (sigma2 + delta2) * gamma / ((sigma2 + delta2) * delta1 + tau * delta2)
   B <- 1 + (sigma2 + delta2 + tau) * gamma /
@@ -144,3 +179,46 @@ equilibium <- function(
 }
 ```
 
+
+**Numerical verification of the equilibrium:**
+
+The calculations:
+
+```{r}
+S0  <- 1e6 - 10 # ind
+I10 <- 0 # ind
+I20 <- 0 # ind
+I30 <- 0 # ind
+D0  <- 10 # ind
+
+beta   <- 1 # /year/ind
+sigma1 <- .1 # /year
+sigma2 <- .1 # /year
+delta1 <- 1.15 # /year
+delta2 <- .1 # /year
+delta3 <- .1 # /year
+gamma  <- .1 # /year
+tau    <- .5 # /year
+rho    <- .05 # /year
+
+dynamics <- epidemiology(S0, I10, I20, I30, D0,
+                         beta, sigma1, sigma2, delta1, delta2, delta3, gamma, tau, rho,
+                         seq2(0, 100))
+
+statics <- equilibium(beta, sigma1, sigma2, delta1, delta2, delta3, gamma, tau, rho,
+                      S0 + I10 + I10 + I10 + D0)
+```
+
+The vizualization:
+
+```{r fig.height = 3.5, fig.width  = 1.5 * 4.24725, margin1 = FALSE, margin2 = TRUE}
+opar <- par(mfrow = 2:3)
+with(dynamics, {
+  plot3(time, I1, ylab = "I1")
+  plot3(time, I2, ylab = "I2")
+  plot3(time, I3, ylab = "I3")
+  plot3(time, S , ylab = "S")
+  plot3(time, D , ylab = "D")
+})
+par(opar)
+```
