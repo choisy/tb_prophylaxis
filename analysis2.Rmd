@@ -22,6 +22,26 @@ knitr::opts_chunk$set(echo       = TRUE,
                       fig.align  = "center")
 ```
 
+## Packages
+
+Required: `deSolve`, `tibble`
+
+```{r}
+library(tibble)
+```
+
+## Functions
+
+```{r}
+ode2 <- function(...) {
+  deSolve::ode(...) |> 
+    as.data.frame() |> 
+    as_tibble()
+}
+```
+
+## Epidemiological model
+
 **Variables:**
 
 * $S$: non-infected
@@ -81,6 +101,46 @@ $$
 **R code for the differential equations:**
 
 ```{r}
+epidemiology <- function(
+    S0, I10, I20, I30, D0,
+    beta, sigma1, sigma2, gamma, delta1, delta2, delta3, rho, times) {
+  
+  N <- S0 + I10 + I20 + I30 + D0
+  
+  ode2(c(S = S0, I1 = I10, I2 = I20, I3 = I30, D = D0),
+       times,
+       function(time, state, pars) {
+         with(as.list(c(state, pars)), {
+           foi <- beta * D * S / N
+           dS  <- sigma1 * I1 + sigma2 * I2 + gamma * D - foi
+           dI1 <- foi - (sigma1 + delta1 + tau) * I1
+           dI2 <- tau * I1 - (delta2 + sigma2) * I2
+           dI3 <- rho * D - delta3 * I3
+           dD  <- delta1 * I1 + delta2 * I2 + delta3 * I3 - (gamma + rho) * D
+           list(c(dS, dI1, dI2, dI3, dD))
+         })},
+       c(beta = beta, gamma = gamma, rho = rho,
+         sigma1 = sigma1, sigma2 = sigma2,
+         delta1 = delta1, delta2 = delta2, delta3 = delta3))
+}
+```
 
+**R code for the endemic equilibrium:**
+
+```{r}
+equilibium <- function(
+    beta, sigma1, sigma2, gamma, delta1, delta2, delta3, rho, N) {
+  
+  A <- (sigma2 + delta2) * gamma / ((sigma2 + delta2) * delta1 + tau * delta2)
+  B <- 1 + (sigma2 + delta2 + tau) * gamma /
+           ((sigma2 + delta2) * delta1 + tau * delta2) - rho / delta3
+  
+  Ds <- (1 - (sigma1 + delta1 + tau) / beta) * A * N / B
+  I1s <- A * Ds
+  I2s <- tau * I1s / (sigma2 + delta2)
+  I3s <- rho * Ds / delta3
+  
+  c(S = N - I1s - I2s - I3s - Ds, I1 = I1s, I2 = I2s, I3 = I3s, D = Ds)
+}
 ```
 
