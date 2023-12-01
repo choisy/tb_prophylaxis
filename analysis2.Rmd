@@ -34,12 +34,16 @@ knitr::opts_chunk$set(echo       = TRUE,
 **Parameters:**
 
 * $\beta$: infectious contact rate (/ind/year)
-* $\sigma_1$ and $\sigma_2$: clearance rates of $I_1$ and $I_2$ respectively,
-either through natural immunity or prophylactic treatment
-* $\delta_1$, $\delta_2$ and $\delta_3$: progression of infection to disease for
-$I_1$, $I_2$ and $I_3$ (relapse) respectively
-* $\gamma$: recovery with clearance either from treatment or natural immunity
-* $\rho$: recovery without clearance (ultimately leading to relapse)
+* $\sigma_1$ and $\sigma_2$: clearance rates (/year) of $I_1$ and $I_2$
+respectively, either through natural immunity or prophylactic treatment
+* $\delta_1$, $\delta_2$ and $\delta_3$: progression rates (/year) of infection
+to disease for $I_1$, $I_2$ and $I_3$ (relapse) respectively
+* $\gamma$: rate (/year) of recovery with clearance either from treatment or
+natural immunity
+* $\rho$: rate (/year) of recovery without clearance (ultimately leading to
+relapse)
+
+**Note:** all these rates are *per capita*
 
 **Flow diagram:**
 
