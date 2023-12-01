@@ -60,3 +60,27 @@ $$
   \frac{dD}{dt}   &= \delta_1 I_1 + \delta_2 I_2 + \delta_3 I_3 - (\gamma + \rho) D
 \end{align}
 $$
+**Endemic equilibrium:**
+
+$$
+\begin{align}
+  A     &= \frac{(\sigma_2 + \delta_2) \gamma}
+                {(\sigma_2 + \delta_2) \delta_1 + \tau \delta_2}     \\
+  B     &= 1 + \frac{(\sigma_2 + \delta_2 + \tau) \gamma}
+                    {(\sigma_2 + \delta_2) \delta_1 + \tau \delta_2}
+             - \frac{\rho}{\delta_3}                                 \\
+  D^*   &= \left(1 - \frac{\sigma_1 + \delta_1 + \tau}{\beta}\right)
+           \frac{A}{B} N                                             \\
+  I_1^* &= AD^*                                                      \\
+  I_2^* &= \frac{\tau}{\sigma_2 + \delta_2} I_1^*                    \\
+  I_3^* &= \frac{\rho}{\delta_3}D^*                                  \\
+  S^*   &= N - I_1^* - I_2^* - I_3^* - D^*
+\end{align}
+$$
+
+**R code for the differential equations:**
+
+```{r}
+
+```
+
