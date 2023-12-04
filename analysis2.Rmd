@@ -116,17 +116,9 @@ $$
 
 $$
 \begin{align}
-  A     &= \frac{(\sigma_2 + \delta_2) \gamma}
-                {(\sigma_2 + \delta_2) \delta_1 + \tau \delta_2}     \\
-  B     &= 1 + \frac{(\sigma_2 + \delta_2 + \tau) \gamma}
-                    {(\sigma_2 + \delta_2) \delta_1 + \tau \delta_2}
-             - \frac{\rho}{\delta_3}                                 \\
-  D^*   &= \left(1 - \frac{\sigma_1 + \delta_1 + \tau}{\beta}\right)
-           \frac{A}{B} N                                             \\
-  I_1^* &= AD^*                                                      \\
-  I_2^* &= \frac{\tau}{\sigma_2 + \delta_2} I_1^*                    \\
-  I_3^* &= \frac{\rho}{\delta_3}D^*                                  \\
-  S^*   &= N - I_1^* - I_2^* - I_3^* - D^*
+  S &= \frac{(\delta_2 + \sigma_2) (\delta_1 + \sigma_1 + \tau)}
+            {(\delta_2 + \sigma_2) \delta_1 + \tau \delta_2}
+       \frac{\gamma}{\beta} N                                    \\
 \end{align}
 $$
 
@@ -165,17 +157,9 @@ epidemiology <- function(
 ```{r}
 equilibium <- function(
     beta, sigma1, sigma2, delta1, delta2, delta3, gamma, tau, rho, N) {
-  
-  A <- (sigma2 + delta2) * gamma / ((sigma2 + delta2) * delta1 + tau * delta2)
-  B <- 1 + (sigma2 + delta2 + tau) * gamma /
-           ((sigma2 + delta2) * delta1 + tau * delta2) - rho / delta3
-  
-  Ds <- (1 - (sigma1 + delta1 + tau) / beta) * A * N / B
-  I1s <- A * Ds
-  I2s <- tau * I1s / (sigma2 + delta2)
-  I3s <- rho * Ds / delta3
-  
-  c(S = N - I1s - I2s - I3s - Ds, I1 = I1s, I2 = I2s, I3 = I3s, D = Ds)
+  S <- (delta2 + sigma2) * (delta1 + sigma1 + tau) * gamma * N / 
+       (((delta2 + sigma2) * delta1 + delta2 * tau) * beta)
+  c(S = S)
 }
 ```
 
@@ -218,6 +202,7 @@ with(dynamics, {
   plot3(time, I2, ylab = "I2")
   plot3(time, I3, ylab = "I3")
   plot3(time, S , ylab = "S")
+  abline(h = statics["S"], col = 2, lwd = 2)
   plot3(time, D , ylab = "D")
 })
 par(opar)
