@@ -90,13 +90,15 @@ to disease for $I_1$, $I_2$ and $I_3$ (relapse) respectively
 natural immunity
 * $\rho$: rate (/year) of recovery without clearance (ultimately leading to
 relapse)
+* $\tau$: rate (/year) at which infected transit from a status of recent
+infection to a status of non-recent infection
 
 **Note:** all these rates are *per capita*
 
 
 **Flow diagram:**
 
-<div style="text-align:center"><img src ="SI1I2I3D.png" width="280"/></div>
+<div style="text-align:center"><img src ="SI1I2I3D.png" width="300"/></div>
 
 
 **Differential equations:**
@@ -116,9 +118,10 @@ $$
 
 $$
 \begin{align}
-  S &= \frac{(\delta_2 + \sigma_2) (\delta_1 + \sigma_1 + \tau)}
-            {(\delta_2 + \sigma_2) \delta_1 + \tau \delta_2}
-       \frac{\gamma}{\beta} N                                    \\
+  S   &= \frac{(\delta_2 + \sigma_2) (\delta_1 + \sigma_1 + \tau)}
+              {(\delta_2 + \sigma_2) \delta_1 + \tau \delta_2}
+         \frac{\gamma}{\beta} N                                    \\
+  I_2 &= \frac{N - S}{1 + (\delta_2 + \sigma_2) / \tau + ()((\delta_2 + \sigma_2) \delta_1 / \tau) / \gamma}
 \end{align}
 $$
 
@@ -159,7 +162,9 @@ equilibium <- function(
     beta, sigma1, sigma2, delta1, delta2, delta3, gamma, tau, rho, N) {
   S <- (delta2 + sigma2) * (delta1 + sigma1 + tau) * gamma * N / 
        (((delta2 + sigma2) * delta1 + delta2 * tau) * beta)
-  c(S = S)
+  I2 <- (N - S) / 
+        ((delta1 * (delta2 + sigma2) / tau + delta2) * (1 + rho / delta3) / gamma + (delta2 + sigma2) / tau + 1)
+  c(S = S, I2 = I2)
 }
 ```
 
@@ -193,6 +198,11 @@ statics <- equilibium(beta, sigma1, sigma2, delta1, delta2, delta3, gamma, tau, 
                       S0 + I10 + I10 + I10 + D0)
 ```
 
+```{r}
+statics
+```
+
+
 The vizualization:
 
 ```{r fig.height = 3.5, fig.width  = 1.5 * 4.24725, margin1 = FALSE, margin2 = TRUE}
@@ -200,6 +210,7 @@ opar <- par(mfrow = 2:3)
 with(dynamics, {
   plot3(time, I1, ylab = "I1")
   plot3(time, I2, ylab = "I2")
+  abline(h = statics["I2"], col = 2, lwd = 2)
   plot3(time, I3, ylab = "I3")
   plot3(time, S , ylab = "S")
   abline(h = statics["S"], col = 2, lwd = 2)
