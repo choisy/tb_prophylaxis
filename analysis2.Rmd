@@ -98,18 +98,18 @@ infection to a status of non-recent infection
 
 **Flow diagram:**
 
-<div style="text-align:center"><img src ="SI1I2I3D.png" width="300"/></div>
+<div style="text-align:center"><img src ="SI1I2I3Dmu.png" width="360"/></div>
 
 
 **Differential equations:**
 
 $$
 \begin{align} 
-  \frac{dS}{dt}   &= \sigma_1 I_1 + \sigma_2 I_2 + \gamma D - \beta \frac{D}{N} S \\
-  \frac{dI_1}{dt} &= \beta \frac{D}{N} S - (\sigma_1 + \delta_1 + \tau) I_1       \\
-  \frac{dI_2}{dt} &= \tau I_1 - (\delta_2 + \sigma_2) I_2                         \\
-  \frac{dI_3}{dt} &= \rho D - \delta_3 I_3                                        \\
-  \frac{dD}{dt}   &= \delta_1 I_1 + \delta_2 I_2 + \delta_3 I_3 - (\gamma + \rho) D
+  \frac{dS}{dt}   &= b N + \sigma_1 I_1 + \sigma_2 I_2 + \gamma D - \left(\mu + \beta \frac{D}{N} \right) S \\
+  \frac{dI_1}{dt} &= \beta \frac{D}{N} S - (\mu + \sigma_1 + \delta_1 + \tau) I_1       \\
+  \frac{dI_2}{dt} &= \tau I_1 - (\mu + \delta_2 + \sigma_2) I_2                         \\
+  \frac{dI_3}{dt} &= \rho D - (\mu + \delta_3) I_3                                        \\
+  \frac{dD}{dt}   &= \delta_1 I_1 + \delta_2 I_2 + \delta_3 I_3 - (\mu + \alpha + \gamma + \rho) D
 \end{align}
 $$
 
