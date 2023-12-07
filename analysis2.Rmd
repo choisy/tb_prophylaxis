@@ -121,7 +121,7 @@ $$
   S   &= \frac{(\delta_2 + \sigma_2) (\delta_1 + \sigma_1 + \tau)}
               {(\delta_2 + \sigma_2) \delta_1 + \tau \delta_2}
          \frac{\gamma}{\beta} N                                    \\
-  I_2 &= \frac{N - S}{1 + (\delta_2 + \sigma_2) / \tau + ()((\delta_2 + \sigma_2) \delta_1 / \tau) / \gamma}
+  I_2 &= \frac{N - S}{1 + (\delta_2 + \sigma_2) / \tau + (1 + \rho / \delta_3)((\delta_2 + \sigma_2) \delta_1 / \tau + \delta_2) / \gamma}
 \end{align}
 $$
 
