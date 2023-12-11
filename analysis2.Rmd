@@ -131,7 +131,9 @@ $$
   S^*   &= (\mu + \delta_1 + \sigma_1 + \tau)\frac{A}{\beta}N \\
   D^*   &= \frac{1 - (\mu + \delta_1 + \sigma_1 + \tau) A}
                 {1 + \rho / (\mu + \delta_3) + (1 + \tau / (\mu + \delta_2 + \sigma_2)) A}
-           \frac{1}{\beta} N
+           \frac{1}{\beta} N \\
+  I_1^* & = \frac{\mu + \delta_2 + \sigma_2 + \tau}{\mu + \delta_2 + \sigma_2}
+            \left[ N - S^* - \left( 1 + \frac{\rho}{\mu + \delta_3} \right) D^* \right]
 \end{align}
 $$
 with
@@ -196,7 +198,9 @@ equilibium <- function(
   S <- (mu + delta1 + sigma1 + tau) * A * N / beta
   D <- (1 - (mu + delta1 + sigma1 + tau) * A) * N / 
        (beta * (1 + rho / (mu + delta3) + (1 + tau / (mu + delta2 + sigma2)) * A))
-  c(S = S, D = D)
+  I1 <- (N - S - (1 + rho / (mu + delta3)) * D) /
+        (1 + tau / (mu + delta2 + sigma2))
+  c(S = S, D = D, I1 = I1)
 }
 ```
 
@@ -243,6 +247,7 @@ The vizualization:
 opar <- par(mfrow = 2:3)
 with(dynamics, {
   plot3(time, I1, ylab = "I1")
+  abline(h = statics["I1"], col = 2, lwd = 2)
   plot3(time, I2, ylab = "I2")
   plot3(time, I3, ylab = "I3")
   plot3(time, S , ylab = "S")
