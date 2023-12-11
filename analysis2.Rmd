@@ -97,6 +97,7 @@ relapse)
 * $\tau$: rate (/year) at which infected transit from a status of recent
 infection to a status of non-recent infection
 * $\mu$: demographic turn-over rate
+* $\alpha$: death rate due to TB
 
 **Note:** all these rates are *per capita*
 
