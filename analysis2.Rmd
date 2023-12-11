@@ -68,6 +68,10 @@ plot3 <- function(x, y, ...) {
 
 ## Epidemiological model
 
+**Assumptions**
+
+* Constant population size
+
 
 **Variables:**
 
@@ -75,7 +79,7 @@ plot3 <- function(x, y, ...) {
 * $I_1$: recently infected
 * $I_2$: infected a long time ago
 * $I_3$: treated but not sterilized
-* $D$: sick and infectious
+* $D$: sick and infectious (we don't discriminate PTB from EPTB)
 * $N = S + I_1 + I_2 + I_3 + D$
 
 
@@ -92,6 +96,7 @@ natural immunity
 relapse)
 * $\tau$: rate (/year) at which infected transit from a status of recent
 infection to a status of non-recent infection
+* $\mu$: demographic turn-over rate
 
 **Note:** all these rates are *per capita*
 
