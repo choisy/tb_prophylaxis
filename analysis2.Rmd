@@ -137,7 +137,7 @@ $$
 ```{r}
 epidemiology <- function(
     S0, I10, I20, I30, D0,
-    beta, sigma1, sigma2, delta1, delta2, delta3, gamma, tau, rho, times) {
+    beta, sigma1, sigma2, delta1, delta2, delta3, gamma, tau, rho, mu, alpha, times) {
   
   N <- S0 + I10 + I20 + I30 + D0
   
@@ -146,17 +146,18 @@ epidemiology <- function(
        function(time, state, pars) {
          with(as.list(c(state, pars)), {
            foi <- beta * D * S / N
-           dS  <- sigma1 * I1 + sigma2 * I2 + gamma * D - foi
-           dI1 <- foi - (sigma1 + delta1 + tau) * I1
-           dI2 <- tau * I1 - (delta2 + sigma2) * I2
-           dI3 <- rho * D - delta3 * I3
-           dD  <- delta1 * I1 + delta2 * I2 + delta3 * I3 - (gamma + rho) * D
+           dS  <- mu * (N - S) + sigma1 * I1 + sigma2 * I2 + gamma * D - foi
+           dI1 <- foi - (mu + sigma1 + delta1 + tau) * I1
+           dI2 <- tau * I1 - (mu + delta2 + sigma2) * I2
+           dI3 <- rho * D - (mu + delta3) * I3
+           dD  <- delta1 * I1 + delta2 * I2 + delta3 * I3 - (mu + alpha + gamma + rho) * D
            list(c(dS, dI1, dI2, dI3, dD))
          })
        },
        c(beta = beta, gamma = gamma, rho = rho,
          sigma1 = sigma1, sigma2 = sigma2,
-         delta1 = delta1, delta2 = delta2, delta3 = delta3))
+         delta1 = delta1, delta2 = delta2, delta3 = delta3,
+         mu = mu, alpha = alpha))
 }
 ```
 
@@ -166,11 +167,12 @@ epidemiology <- function(
 ```{r}
 equilibium <- function(
     beta, sigma1, sigma2, delta1, delta2, delta3, gamma, tau, rho, N) {
-  S <- (delta2 + sigma2) * (delta1 + sigma1 + tau) * gamma * N / 
-       (((delta2 + sigma2) * delta1 + delta2 * tau) * beta)
-  I2 <- (N - S) / 
-        ((delta1 * (delta2 + sigma2) / tau + delta2) * (1 + rho / delta3) / gamma + (delta2 + sigma2) / tau + 1)
-  c(S = S, I2 = I2)
+  S <- (mu + delta2 + sigma2) * (mu + delta1 + sigma1 + tau) * 
+       ((1 - rho / (mu + delta3)) * mu + alpha + gamma) * N /
+       (beta * ((mu + delta2 + sigma2) * delta1 + tau * delta2))
+  D <- N - S /
+       (1 + rho / (mu + delta3) + (1 + tau / (mu + delta2 + sigma2)) * beta * S / (N * (mu + sigma1 + delta1 + tau)))
+  c(S = S, D = D)
 }
 ```
 
