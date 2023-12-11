@@ -128,9 +128,18 @@ $$
               {(\mu + \delta_2 + \sigma_2) \delta_1 + \tau \delta_2}
          \left[\left(1 + \frac{\rho}{\mu + \delta_3} \right) \mu + \alpha + \gamma \right]
          \frac{1}{\beta} N                                    \\
+  S^*   &= (\mu + \delta_1 + \sigma_1 + \tau)\frac{A}{\beta}N \\
+  D^*   &= \frac{1 - (\mu + \delta_1 + \sigma_1 + \tau) A}
+                {1 + \rho / (\mu + \delta_3) + (1 + \tau / (\mu + \delta_2 + \sigma_2)) A}
+           \frac{1}{\beta} N
 \end{align}
 $$
+with
 
+$$
+A = \frac{\mu + \delta_2 + \sigma_2}{(\mu + \delta_2 + \sigma_2) \delta_1 + \tau \delta_2}
+\left[ \left( 1 + \frac{\rho}{\mu + \delta_3} \right) \mu + \alpha + \gamma \right]
+$$
 
 **R code for the differential equations:**
 
@@ -174,6 +183,19 @@ equilibium <- function(
        (1 + rho / (mu + delta3)
         + (1 + tau / (mu + delta2 + sigma2)) * beta * S /
           (N * (mu + sigma1 + delta1 + tau)))
+  c(S = S, D = D)
+}
+```
+
+```{r}
+equilibium <- function(
+    beta, sigma1, sigma2, delta1, delta2, delta3, gamma, tau, rho, mu, alpha, N) {
+  A <- (mu + delta2 + sigma2) * 
+       ((1 - rho / (mu + delta3)) * mu + alpha + gamma) /
+       ((mu + delta2 + sigma2) * delta1 + tau * delta2)
+  S <- (mu + delta1 + sigma1 + tau) * A * N / beta
+  D <- (1 - (mu + delta1 + sigma1 + tau) * A) * N / 
+       (beta * (1 + rho / (mu + delta3) + (1 + tau / (mu + delta2 + sigma2)) * A))
   c(S = S, D = D)
 }
 ```
