@@ -166,12 +166,14 @@ epidemiology <- function(
 
 ```{r}
 equilibium <- function(
-    beta, sigma1, sigma2, delta1, delta2, delta3, gamma, tau, rho, N) {
+    beta, sigma1, sigma2, delta1, delta2, delta3, gamma, tau, rho, mu, alpha, N) {
   S <- (mu + delta2 + sigma2) * (mu + delta1 + sigma1 + tau) * 
        ((1 - rho / (mu + delta3)) * mu + alpha + gamma) * N /
        (beta * ((mu + delta2 + sigma2) * delta1 + tau * delta2))
-  D <- N - S /
-       (1 + rho / (mu + delta3) + (1 + tau / (mu + delta2 + sigma2)) * beta * S / (N * (mu + sigma1 + delta1 + tau)))
+  D <- (N - S) /
+       (1 + rho / (mu + delta3)
+        + (1 + tau / (mu + delta2 + sigma2)) * beta * S /
+          (N * (mu + sigma1 + delta1 + tau)))
   c(S = S, D = D)
 }
 ```
@@ -197,13 +199,15 @@ delta3 <- .1 # /year
 gamma  <- .1 # /year
 tau    <- .5 # /year
 rho    <- .05 # /year
+mu     <- 0 # /year
+alpha  <- 0 # /year
 
 dynamics <- epidemiology(S0, I10, I20, I30, D0,
-                         beta, sigma1, sigma2, delta1, delta2, delta3, gamma, tau, rho,
-                         seq2(0, 100))
+                         beta, sigma1, sigma2, delta1, delta2, delta3,
+                         gamma, tau, rho, mu, alpha, seq2(0, 100))
 
-statics <- equilibium(beta, sigma1, sigma2, delta1, delta2, delta3, gamma, tau, rho,
-                      S0 + I10 + I10 + I10 + D0)
+statics <- equilibium(beta, sigma1, sigma2, delta1, delta2, delta3,
+                      gamma, tau, rho, mu, alpha, S0 + I10 + I10 + I10 + D0)
 ```
 
 ```{r}
@@ -218,11 +222,11 @@ opar <- par(mfrow = 2:3)
 with(dynamics, {
   plot3(time, I1, ylab = "I1")
   plot3(time, I2, ylab = "I2")
-  abline(h = statics["I2"], col = 2, lwd = 2)
   plot3(time, I3, ylab = "I3")
   plot3(time, S , ylab = "S")
   abline(h = statics["S"], col = 2, lwd = 2)
   plot3(time, D , ylab = "D")
+  abline(h = statics["D"], col = 2, lwd = 2)
 })
 par(opar)
 ```
