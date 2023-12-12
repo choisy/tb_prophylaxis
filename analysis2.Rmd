@@ -186,7 +186,9 @@ equilibium <- function(
   S <- (mu + delta2 + sigma2) * (mu + delta1 + sigma1 + tau) *
        ((mu + delta3 + rho) * mu / (mu + delta3) + alpha + gamma) * N /
          (beta * ((mu + delta2 + sigma2) * delta1 + tau * delta2))
-  c(S = S)
+  D <- (N - S) / 
+       (1 + rho / (mu + delta3) + (1 + tau / (mu + delta2 + sigma2)) * beta * S / ((mu + sigma1 + delta1 + tau) * N))
+  c(S = S, D = D)
 }
 ```
 
@@ -238,6 +240,7 @@ with(dynamics, {
   plot3(time, S , ylab = "S")
   abline(h = statics["S"], col = 2, lwd = 2)
   plot3(time, D , ylab = "D")
+  abline(h = statics["D"], col = 2, lwd = 2)
 })
 par(opar)
 ```
