@@ -124,15 +124,11 @@ $$
 
 $$
 \begin{align}
-  S^*   &= \frac{(\mu + \delta_2 + \sigma_2) (\mu + \delta_1 + \sigma_1 + \tau)}
-              {(\mu + \delta_2 + \sigma_2) \delta_1 + \tau \delta_2}
-         \left[\left(1 + \frac{\rho}{\mu + \delta_3} \right) \mu + \alpha + \gamma \right]
-         \frac{1}{\beta} N                                    \\
   S^*   &= (\mu + \delta_1 + \sigma_1 + \tau)\frac{A}{\beta}N \\
   D^*   &= \frac{1 - (\mu + \delta_1 + \sigma_1 + \tau) A}
                 {1 + \rho / (\mu + \delta_3) + (1 + \tau / (\mu + \delta_2 + \sigma_2)) A}
            \frac{1}{\beta} N \\
-  I_1^* & = \frac{\mu + \delta_2 + \sigma_2 + \tau}{\mu + \delta_2 + \sigma_2}
+  I_1^* & = \frac{\mu + \delta_2 + \sigma_2}{\mu + \delta_2 + \sigma_2 + \tau}
             \left[ N - S^* - \left( 1 + \frac{\rho}{\mu + \delta_3} \right) D^* \right] \\
   I_2^* & = N - S^* - I_1^* - \left( 1 + \frac{\rho}{\mu + \delta_3} \right) D^* \\
   I_3^* & = N - S^* - I_1^* - I_2^* - I_3^* - D^*
@@ -143,10 +139,8 @@ with
 
 $$
 A = \frac{\mu + \delta_2 + \sigma_2}{(\mu + \delta_2 + \sigma_2) \delta_1 + \tau \delta_2}
-\left[ \left( 1 + \frac{\rho}{\mu + \delta_3} \right) \mu + \alpha + \gamma \right]
+\left[ \left( 1 - \frac{\rho}{\mu + \delta_3} \right) \mu + \alpha + \gamma \right]
 $$
-
-
 
 **R code for the differential equations:**
 
@@ -183,30 +177,27 @@ epidemiology <- function(
 ```{r}
 equilibium <- function(
     beta, sigma1, sigma2, delta1, delta2, delta3, gamma, tau, rho, mu, alpha, N) {
-  S <- (mu + delta2 + sigma2) * (mu + delta1 + sigma1 + tau) * 
-       ((1 - rho / (mu + delta3)) * mu + alpha + gamma) * N /
-       (beta * ((mu + delta2 + sigma2) * delta1 + tau * delta2))
-  D <- (N - S) /
-       (1 + rho / (mu + delta3)
-        + (1 + tau / (mu + delta2 + sigma2)) * beta * S /
-          (N * (mu + sigma1 + delta1 + tau)))
-  c(S = S, D = D)
+  A <- (mu + delta2 + sigma2) * 
+       ((1 - rho / (mu + delta3)) * mu + alpha + gamma) /
+       ((mu + delta2 + sigma2) * delta1 + tau * delta2)
+  
+  S <- (mu + delta1 + sigma1 + tau) * A * N / beta
+  D <- (1 - (mu + delta1 + sigma1 + tau) * A) * N / 
+       (beta * (1 + rho / (mu + delta3) + (1 + tau / (mu + delta2 + sigma2)) * A))
+  I1 <- (mu + delta2 + sigma2) * (N - S - (1 + rho / (mu + delta3)) * D) /
+        (mu + delta2 + sigma2 + tau)
+  I2 <- N - S - I1 - (1 + rho /(mu + delta3)) * D
+  c(S = S, D = D, I1 = I1, I2 = I2, I3 = N - S - D - I1 - I2)
 }
 ```
 
 ```{r}
 equilibium <- function(
     beta, sigma1, sigma2, delta1, delta2, delta3, gamma, tau, rho, mu, alpha, N) {
-  A <- (mu + delta2 + sigma2) * 
-       ((1 - rho / (mu + delta3)) * mu + alpha + gamma) /
-       ((mu + delta2 + sigma2) * delta1 + tau * delta2)
-  S <- (mu + delta1 + sigma1 + tau) * A * N / beta
-  D <- (1 - (mu + delta1 + sigma1 + tau) * A) * N / 
-       (beta * (1 + rho / (mu + delta3) + (1 + tau / (mu + delta2 + sigma2)) * A))
-  I1 <- (N - S - (1 + rho / (mu + delta3)) * D) /
-        (1 + tau / (mu + delta2 + sigma2))
-  I2 <- N - S - I1 - (1 + rho /(mu + delta3)) * D
-  c(S = S, D = D, I1 = I1, I2 = I2, I3 = N - S - D - I1 - I2)
+  S <- (mu + delta2 + sigma2) * (mu + delta1 + sigma1 + tau) *
+       (gamma + mu + alpha + (1 - delta3 / (mu + delta3)) * rho) * N /
+       (beta * ((mu + delta2 + sigma2) * delta1 + tau * delta2))
+  c(S = S)
 }
 ```
 
@@ -231,12 +222,12 @@ delta3 <- .1 # /year
 gamma  <- .1 # /year
 tau    <- .5 # /year
 rho    <- .05 # /year
-mu     <- 0 # /year
-alpha  <- 0 # /year
+mu     <- .02 # /year
+alpha  <- .03 # /year
 
 dynamics <- epidemiology(S0, I10, I20, I30, D0,
                          beta, sigma1, sigma2, delta1, delta2, delta3,
-                         gamma, tau, rho, mu, alpha, seq2(0, 100))
+                         gamma, tau, rho, mu, alpha, seq2(0, 200))
 
 statics <- equilibium(beta, sigma1, sigma2, delta1, delta2, delta3,
                       gamma, tau, rho, mu, alpha, S0 + I10 + I10 + I10 + D0)
@@ -253,15 +244,11 @@ The vizualization:
 opar <- par(mfrow = 2:3)
 with(dynamics, {
   plot3(time, I1, ylab = "I1")
-  abline(h = statics["I1"], col = 2, lwd = 2)
   plot3(time, I2, ylab = "I2")
-  abline(h = statics["I2"], col = 2, lwd = 2)
   plot3(time, I3, ylab = "I3")
-  abline(h = statics["I3"], col = 2, lwd = 2)
   plot3(time, S , ylab = "S")
   abline(h = statics["S"], col = 2, lwd = 2)
   plot3(time, D , ylab = "D")
-  abline(h = statics["D"], col = 2, lwd = 2)
 })
 par(opar)
 ```
