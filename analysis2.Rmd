@@ -124,23 +124,12 @@ $$
 
 $$
 \begin{align}
-  S^*   &= (\mu + \delta_1 + \sigma_1 + \tau)\frac{A}{\beta}N \\
-  D^*   &= \frac{1 - (\mu + \delta_1 + \sigma_1 + \tau) A}
-                {1 + \rho / (\mu + \delta_3) + (1 + \tau / (\mu + \delta_2 + \sigma_2)) A}
-           \frac{1}{\beta} N \\
-  I_1^* & = \frac{\mu + \delta_2 + \sigma_2}{\mu + \delta_2 + \sigma_2 + \tau}
-            \left[ N - S^* - \left( 1 + \frac{\rho}{\mu + \delta_3} \right) D^* \right] \\
-  I_2^* & = N - S^* - I_1^* - \left( 1 + \frac{\rho}{\mu + \delta_3} \right) D^* \\
-  I_3^* & = N - S^* - I_1^* - I_2^* - I_3^* - D^*
+  S^*   &= \frac{(\mu + \delta_2 + \sigma_2) (\mu + \delta_1 + \sigma_1 + \tau)}
+                {(\mu + \delta_2 + \sigma_2) \delta_1 + \tau \delta_2}
+           \left( \frac{\mu + \delta_3 + \rho}{\mu + \delta_3} \mu + \alpha + \gamma  \right) \frac{1}{\beta} N
 \end{align}
 $$
 
-with
-
-$$
-A = \frac{\mu + \delta_2 + \sigma_2}{(\mu + \delta_2 + \sigma_2) \delta_1 + \tau \delta_2}
-\left[ \left( 1 - \frac{\rho}{\mu + \delta_3} \right) \mu + \alpha + \gamma \right]
-$$
 
 **R code for the differential equations:**
 
@@ -195,8 +184,8 @@ equilibium <- function(
 equilibium <- function(
     beta, sigma1, sigma2, delta1, delta2, delta3, gamma, tau, rho, mu, alpha, N) {
   S <- (mu + delta2 + sigma2) * (mu + delta1 + sigma1 + tau) *
-       (gamma + mu + alpha + (1 - delta3 / (mu + delta3)) * rho) * N /
-       (beta * ((mu + delta2 + sigma2) * delta1 + tau * delta2))
+       ((mu + delta3 + rho) * mu / (mu + delta3) + alpha + gamma) * N /
+         (beta * ((mu + delta2 + sigma2) * delta1 + tau * delta2))
   c(S = S)
 }
 ```
