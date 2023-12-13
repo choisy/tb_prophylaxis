@@ -186,6 +186,9 @@ equilibium <- function(
   S <- (mu + delta2 + sigma2) * (mu + delta1 + sigma1 + tau) *
        ((mu + delta3 + rho) * mu / (mu + delta3) + alpha + gamma) * N /
          (beta * ((mu + delta2 + sigma2) * delta1 + tau * delta2))
+  
+  D <- 0
+  
   c(S = S, D = D)
 }
 ```
