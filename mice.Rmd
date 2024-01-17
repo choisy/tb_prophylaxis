@@ -80,9 +80,11 @@ add_data <- function(x, col) {
 ```{r}
 treatments <- unique(table2$group)
 
+t0_val <- 1e4
+
 table2b <- bind_rows(
   table2,
-  tibble(group = treatments, duration = 0, positive = 1000, total = 1000))
+  tibble(group = treatments, duration = 0, positive = t0_val, total = t0_val))
 ```
 
 ```{r}
@@ -116,7 +118,7 @@ plot(NA, xlim = c(0, 6), ylim = 0:1,
      ylab = "proportion positive")
 
 walk2(treatments, 1:4, add_data)
-#walk2(treatments, 1:4, add_model)
-walk2(treatments[c(2, 3)], c(2, 3), add_model)
+walk2(treatments, 1:4, add_model)
+#walk2(treatments[c(2, 3)], c(2, 3), add_model)
 ```
 
