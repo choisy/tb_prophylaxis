@@ -6,7 +6,74 @@ editor_options:
 ---
 
 ```{r setup, include = FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo    = TRUE,
+                      message = FALSE)
 ```
 
+
+Looking at data from
+Zhang *et al.*
+Short-course chemotherapy with TMC207 and rifapentine in a murine model of
+latent tuberculosis infection.
+*American Journal of Respiratory and Critical Care Medicine* 184.6 (2011): 732-737.
+[10.1164/rccm.201103-0397OC](https://doi.org/10.1164/rccm.201103-0397oc)
+
+## Packages
+
+```{r}
+library(readxl)
+library(dplyr)
+library(purrr)
+library(tidyr)
+```
+
+
+## Utilitary functions
+
+A function that add proportions estimate and confidence interval to a data frame
+from a column of successes and a column or trials:
+
+```{r}
+add_prop_est <- function(df, x, n, ...) {
+  df |> 
+    mutate(test = map2({{ x }}, {{ n }}, prop.test, ...),
+           prop = map_dbl(test, ~ .x[["estimate"]]),
+           conf = map(test, ~ setNames(.x[["conf.int"]], c("lwr", "upr")))) |> 
+    unnest_wider(conf) |> 
+    select(- test)
+}
+```
+
+```{r}
+add_prop_est <- function(df, x, n, p = "est", l = "lwr", u = "upr", ...) {
+  df |> 
+    mutate(test   = map2({{ x }}, {{ n }}, prop.test, ...),
+           "{p}" := map_dbl(test, ~ .x[["estimate"]]),
+           conf   = map(test, ~ setNames(.x[["conf.int"]], c(l, u)))) |> 
+    unnest_wider(conf) |> 
+    select(- test)
+}
+```
+
+
 ## Loading the data
+
+```{r}
+table2 <- "table 2 Zhang et al 2011.xlsx" |>
+  read_excel() |> 
+  add_prop_est(positive, total)
+```
+
+The data look like this:
+
+```{r}
+table2
+```
+
+
+## Analysis
+
+Adding proportions and confidence intervals:
+
+
+
