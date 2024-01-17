@@ -30,19 +30,8 @@ library(tidyr)
 
 ## Utilitary functions
 
-A function that add proportions estimate and confidence interval to a data frame
-from a column of successes and a column or trials:
-
-```{r}
-add_prop_est <- function(df, x, n, ...) {
-  df |> 
-    mutate(test = map2({{ x }}, {{ n }}, prop.test, ...),
-           prop = map_dbl(test, ~ .x[["estimate"]]),
-           conf = map(test, ~ setNames(.x[["conf.int"]], c("lwr", "upr")))) |> 
-    unnest_wider(conf) |> 
-    select(- test)
-}
-```
+A function that adds proportions estimate and confidence interval to a data
+frame from a column of successes and a column or trials:
 
 ```{r}
 add_prop_est <- function(df, x, n, p = "est", l = "lwr", u = "upr", ...) {
@@ -56,12 +45,10 @@ add_prop_est <- function(df, x, n, p = "est", l = "lwr", u = "upr", ...) {
 ```
 
 
-## Loading the data
+## The data
 
 ```{r}
-table2 <- "table 2 Zhang et al 2011.xlsx" |>
-  read_excel() |> 
-  add_prop_est(positive, total)
+table2 <- read_excel("table 2 Zhang et al 2011.xlsx")
 ```
 
 The data look like this:
@@ -73,7 +60,63 @@ table2
 
 ## Analysis
 
-Adding proportions and confidence intervals:
+```{r}
+table2a <- table2 |>
+  add_prop_est(positive, total) |> 
+  mutate_at("duration", jitter, factor = .2)
+```
 
+```{r}
+add_data <- function(x, col) {
+  table2a |> 
+    filter(group == x) |> 
+    with({
+      points(duration, est, col = col)
+      arrows(duration, lwr, duration, upr, .1, 90, 3, col)
+    })
+}
+```
 
+```{r}
+treatments <- unique(table2$group)
+
+table2b <- bind_rows(
+  table2,
+  tibble(group = treatments, duration = 0, positive = 1000, total = 1000))
+```
+
+```{r}
+add_model <- function(x, col) {
+  dt <- filter(table2b, group == x)
+  df <- sum(dt$total)
+  
+  model <- glm(cbind(total - positive, total) ~ duration, binomial, dt)
+  linkinv <- model$family$linkinv
+  
+  predictions <- tibble(duration = seq(0, 6, le = 512))
+  
+  preds <- predict(model, predictions, se.fit = TRUE)
+  se_fit <- preds$se.fit
+  
+  predictions |> 
+    mutate(fit = preds$fit,
+           lwr = 1 - linkinv(fit + qt(.975, df) * se_fit),
+           upr = 1 - linkinv(fit + qt(.025, df) * se_fit),
+           fit = 1 - linkinv(fit)) |> 
+    with({
+      polygon(c(duration, rev(duration)), c(lwr, rev(upr)), border = NA, col = adjustcolor(col, .2))
+      lines(duration, fit, col = col)
+    })
+}
+```
+
+```{r}
+plot(NA, xlim = c(0, 6), ylim = 0:1,
+     xlab = "duration of treatment (months)",
+     ylab = "proportion positive")
+
+walk2(treatments, 1:4, add_data)
+#walk2(treatments, 1:4, add_model)
+walk2(treatments[c(2, 3)], c(2, 3), add_model)
+```
 
