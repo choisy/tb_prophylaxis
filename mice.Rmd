@@ -25,6 +25,7 @@ library(readxl)
 library(dplyr)
 library(purrr)
 library(tidyr)
+library(parallel)
 ```
 
 
@@ -120,5 +121,191 @@ plot(NA, xlim = c(0, 6), ylim = 0:1,
 walk2(treatments, 1:4, add_data)
 walk2(treatments, 1:4, add_model)
 #walk2(treatments[c(2, 3)], c(2, 3), add_model)
+```
+
+## Another model
+
+
+$$
+N(t) = N_0 e^{-\lambda t}
+$$
+
+```{r}
+cfu <- function(N0, lambda, t) {
+  N0 * exp(- lambda * t)
+}
+```
+
+Let's try it:
+
+```{r}
+cfu(1e4, .115, 30)
+cfu(1e4, .115, c(30, 60))
+```
+
+
+```{r}
+rgamma2 <- function(n, mu, sigma) {
+  rgamma(n, mu^2 / sigma^2, scale = sigma^2 / mu)
+}
+```
+
+```{r}
+dgamma2 <- function(x, mu, sigma) {
+  dgamma(x, mu^2 / sigma^2, scale = sigma^2 / mu)
+}
+```
+
+```{r}
+pgamma2 <- function(q, mu, sigma) {
+  pgamma(q, mu^2 / sigma^2, scale = sigma^2 / mu)
+}
+```
+
+```{r}
+qgamma2 <- function(p, mu, sigma) {
+  qgamma(p, mu^2 / sigma^2, scale = sigma^2 / mu)
+}
+```
+
+```{r}
+cfu(1e4, qgamma2(.9, .115, .011), 30)
+```
+
+
+Let's try it:
+
+```{r}
+hist(rgamma2(1e4, .115, .011))
+```
+
+Let's try it combined with the CFU function:
+
+```{r}
+plot(NA, xlim = c(0, 6 * 30), ylim = c(0, 1e4))
+t_val <- seq(0, 6 * 30, le = 512)
+
+lambda_val <- rgamma2(10, .115, .011)
+
+map(lambda_val, ~ cfu(1e4, .x, t_val))
+```
+
+
+The log-likelihood function:
+
+```{r}
+LL <- function(mu, sigma, data, N0, lod, n) {
+  sum(
+    dbinom(
+      data$positive,
+      data$total,
+      sum(cfu(N0, rgamma2(n, exp(mu), exp(sigma)), 30 * data$duration) > lod) / n,
+      TRUE
+    )
+  )
+}
+```
+
+Let's vizulize it:
+
+```{r}
+dt <- filter(table2, group == "RIF")
+mu_val <- seq(.05, .3, le = 100)
+LL_val <- map_dbl(mu_val, ~ LL(.x , .01, dt, 1e4, 1, 1e6))
+plot(mu_val, LL_val)
+```
+
+The function that performs esimation:
+
+```{r}
+estimation <- function(drug, mu, sigma, N0, lod, n, ...) {
+  data <- filter(table2, group == drug)
+  mLL <- function(mu, sigma) {
+    -sum(
+      dbinom(
+        data$positive,
+        data$total,
+        sum(cfu(N0, rgamma2(n, exp(mu), exp(sigma)), 30 * data$duration) > lod) / n,
+        TRUE
+      )
+    )
+  }
+  mle2(mLL, list(mu = log(mu), sigma = log(sigma)), ...)
+}
+```
+
+A function that converts estimates into data for a curve:
+
+```{r}
+estimates2ci <- function(x) {
+  x |> 
+    coef() |> 
+    exp() |> 
+    as.list() |> 
+    with(rgamma2(10, mu, sigma)) |>
+    map_dfc(~ cfu(N0, .x, t)) |> 
+    t() |> 
+    as.data.frame() |> 
+    map_dfr(quantile, c(.025, .5, .975))
+}
+```
+
+Let's try it:
+
+```{r}
+system.time(estimates <- estimation("RIF", mu = .15, sigma = .01, 1e4, lod = 1, n = 1e6))
+estimates2ci(estimates)
+```
+
+Let's explore the quality of estimations:
+
+```{r}
+system.time(a1 <- replicate(10, estimation(treatments[1], mu = .05, sigma = .01, N0 = 1e4, lod = 1, n = 1e6, method = "Nelder-Mead")))
+b1 <- bind_cols(exp(map_dfr(a1, coef)), map_dbl(a1, logLik))
+```
+
+```{r}
+system.time(a2 <- mclapply(1:11, function(x) estimation(treatments[2], mu = .15, sigma = .01, N0 = 1e4, lod = 1, n = 1e6, method = "Nelder-Mead"), mc.cores = 11))
+b2 <- bind_cols(exp(map_dfr(a2, coef)), map_dbl(a2, logLik), map_dbl(a2, ~ .x@details$convergence))
+```
+
+```{r}
+a3 <- replicate(50, estimation(treatments[3], mu = .15, sigma = .01, 1e4, lod = 1, n = 1e4, method = "Nelder-Mead"))
+b3 <- bind_cols(exp(map_dfr(a3, coef)), map_dbl(a3, logLik))
+```
+
+```{r}
+a4 <- replicate(50, estimation(treatments[4], mu = .15, sigma = .01, 1e4, lod = 1, n = 1e4, method = "Nelder-Mead"))
+b4 <- bind_cols(exp(map_dfr(a4, coef)), map_dbl(a4, logLik))
+```
+
+
+
+```{r}
+arrange(b, ...3)[1, c("mu", "sigma")]
+```
+
+```{r}
+estimation2 <- function(drug, mu0, sigma, N0, lod, n, nb) {
+  out <- replicate(nb, estimation(drug, mu0, sigma, N0, lod, n, method = "Nelder-Mead"))
+  out[[which.max(map_dbl(out, logLik))]]
+}
+
+estimation2(treatments[2], mu0 = .15, sigma = .01, N0 = 1e4, lod = 1, n = 1e4, nb = 50)
+```
+
+
+
+
+
+```{r}
+points(arrange(b, ...3)[3, "mu"], arrange(b, ...3)[3, "sigma"], col = 4)
+
+points(mean(b$mu), mean(b$sigma), col = 4, pch = 3)
+```
+
+```{r}
+b2 <- filter(b, sort(-...3 - min(-b[[3]])) < 1e-6)
+points(b2$mu, b2$sigma, col = 2)
 ```
 
