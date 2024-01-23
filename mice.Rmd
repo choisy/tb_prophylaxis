@@ -26,6 +26,7 @@ library(dplyr)
 library(purrr)
 library(tidyr)
 library(parallel)
+library(bbmle)
 ```
 
 
@@ -61,11 +62,21 @@ table2
 
 ## Analysis
 
+Preparing the data for vizualization:
+
 ```{r}
 table2a <- table2 |>
   add_prop_est(positive, total) |> 
   mutate_at("duration", jitter, factor = .2)
 ```
+
+It looks like this:
+
+```{r}
+table2a
+```
+
+A function that adds proportion estimates and confidence intervals to a plot:
 
 ```{r}
 add_data <- function(x, col) {
@@ -78,6 +89,8 @@ add_data <- function(x, col) {
 }
 ```
 
+Preparing the data for modelling:
+
 ```{r}
 treatments <- unique(table2$group)
 
@@ -87,6 +100,8 @@ table2b <- bind_rows(
   table2,
   tibble(group = treatments, duration = 0, positive = t0_val, total = t0_val))
 ```
+
+A function that adds the logistic model predictions to a plot:
 
 ```{r}
 add_model <- function(x, col) {
@@ -113,6 +128,9 @@ add_model <- function(x, col) {
 }
 ```
 
+The plot showing points estimates with confidence intervals from the data
+together with the logistic regression prediction:
+
 ```{r}
 plot(NA, xlim = c(0, 6), ylim = 0:1,
      xlab = "duration of treatment (months)",
@@ -130,6 +148,8 @@ $$
 N(t) = N_0 e^{-\lambda t}
 $$
 
+A function that gives CFU as a function of inital CFU, decay rate and time:
+
 ```{r}
 cfu <- function(N0, lambda, t) {
   N0 * exp(- lambda * t)
@@ -143,6 +163,7 @@ cfu(1e4, .115, 30)
 cfu(1e4, .115, c(30, 60))
 ```
 
+A reparameterization
 
 ```{r}
 rgamma2 <- function(n, mu, sigma) {
@@ -172,6 +193,88 @@ qgamma2 <- function(p, mu, sigma) {
 cfu(1e4, qgamma2(.9, .115, .011), 30)
 ```
 
+
+```{r}
+lambda <- .3
+sigma <- .011
+N0 <- 1e4
+epsilon <- 1e-16
+
+cfu(N0, qgamma2(epsilon, lambda, sigma), 30)
+cfu(N0, qgamma2(1 - epsilon, lambda, sigma), 30)
+```
+
+```{r}
+distance_to_1 <- function(p, lambda, sigma, N0, t) {
+  abs(1 - cfu(N0, qgamma2(p, lambda, sigma), t))
+}
+```
+
+This function converts values for $\lambda$ and $\sigma$ to the probability
+parameter of a binomial distribution:
+
+```{r}
+probability <- function(lambda, sigma, N0, t, epsilon = 1e-16) {
+  upr <- cfu(N0, qgamma2(epsilon, lambda, sigma), t)
+  if (upr < 1) {
+    return(0)
+  } else {
+    lwr <- cfu(N0, qgamma2(1 - epsilon, lambda, sigma), t)
+    if (lwr > 1) {
+      return(1)
+    }
+    else {
+      optimize(distance_to_1, 0:1, lambda = lambda, sigma = sigma, N0 = N0, t = t)$minimum
+    }
+  }
+}
+```
+
+Let's try it:
+
+```{r}
+xs <- seq(.1, .5, le = 512)
+plot(xs, map_dbl(xs, probability, sigma = .011, N0 = 1e4, t = 30, epsilon = 1e-16),
+     type = "l", col = 4, lwd = 3, xlab = "sigma", ylab = "probability")
+```
+
+Minus log likelihood:
+
+```{r}
+mLL <- function(lambda, sigma, N0, data, epsilon = 1e-16) {
+  - sum(dbinom(data$positive,
+               data$total,
+               map_dbl(data$duration, ~ probability(lambda, sigma, N0, .x * 30, epsilon)),
+               TRUE))
+}
+```
+
+Let's try it:
+
+```{r}
+mLL(lambda = .1, sigma = .011, N0 = 1e4, data = filter(table2, group == "RIF"), epsilon = 1e-16)
+```
+
+```{r}
+f <- function(lambda = .1, sigma = .011, drug = "RIF", N0 = 1e4, epsilon = 1e-16) {
+  data <- filter(table2, group == drug)
+  mLL2 <- function(lambda, sigma) {
+    mLL(lambda, sigma, N0, data, epsilon)
+  }
+  mle2(mLL2, start = list(lambda = lambda, sigma = sigma))
+}
+
+f(lambda = .1, sigma = .011, drug = "RIF", N0 = 1e4, epsilon = 1e-16)
+```
+
+```{r}
+
+```
+
+
+
+
+## Old code
 
 Let's try it:
 
