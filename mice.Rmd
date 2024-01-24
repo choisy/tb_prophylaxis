@@ -1,13 +1,16 @@
 ---
 title: "Of mice and men"
-output: html_document
+output:
+  html_document:
+    toc: true
 editor_options: 
   chunk_output_type: console
 ---
 
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(echo    = TRUE,
-                      message = FALSE)
+                      message = FALSE,
+                      cache   = TRUE)
 ```
 
 
@@ -18,7 +21,7 @@ latent tuberculosis infection.
 *American Journal of Respiratory and Critical Care Medicine* 184.6 (2011): 732-737.
 [10.1164/rccm.201103-0397OC](https://doi.org/10.1164/rccm.201103-0397oc)
 
-## Packages
+## 1 Packages
 
 ```{r}
 library(readxl)
@@ -30,9 +33,9 @@ library(bbmle)
 ```
 
 
-## Utilitary functions
+## 2 Utilitary functions
 
-A function that adds proportions estimate and confidence interval to a data
+A function that adds proportions estimates and confidence intervals to a data
 frame from a column of successes and a column or trials:
 
 ```{r}
@@ -46,8 +49,26 @@ add_prop_est <- function(df, x, n, p = "est", l = "lwr", u = "upr", ...) {
 }
 ```
 
+A reparameterization of `dgamma()`:
 
-## The data
+```{r}
+dgamma2 <- function(x, mu, sigma) {
+  dgamma(x, mu^2 / sigma^2, scale = sigma^2 / mu)
+}
+```
+
+A reparameterization of `qgamma()`:
+
+```{r}
+qgamma2 <- function(p, mu, sigma) {
+  qgamma(p, mu^2 / sigma^2, scale = sigma^2 / mu)
+}
+```
+
+
+## 3 The data
+
+Reading the data:
 
 ```{r}
 table2 <- read_excel("table 2 Zhang et al 2011.xlsx")
@@ -58,9 +79,6 @@ The data look like this:
 ```{r}
 table2
 ```
-
-
-## Analysis
 
 Preparing the data for vizualization:
 
@@ -89,70 +107,34 @@ add_data <- function(x, col) {
 }
 ```
 
-Preparing the data for modelling:
+The plot showing points estimates with confidence intervals from the data:
 
 ```{r}
 treatments <- unique(table2$group)
 
-t0_val <- 1e4
-
-table2b <- bind_rows(
-  table2,
-  tibble(group = treatments, duration = 0, positive = t0_val, total = t0_val))
-```
-
-A function that adds the logistic model predictions to a plot:
-
-```{r}
-add_model <- function(x, col) {
-  dt <- filter(table2b, group == x)
-  df <- sum(dt$total)
-  
-  model <- glm(cbind(total - positive, total) ~ duration, binomial, dt)
-  linkinv <- model$family$linkinv
-  
-  predictions <- tibble(duration = seq(0, 6, le = 512))
-  
-  preds <- predict(model, predictions, se.fit = TRUE)
-  se_fit <- preds$se.fit
-  
-  predictions |> 
-    mutate(fit = preds$fit,
-           lwr = 1 - linkinv(fit + qt(.975, df) * se_fit),
-           upr = 1 - linkinv(fit + qt(.025, df) * se_fit),
-           fit = 1 - linkinv(fit)) |> 
-    with({
-      polygon(c(duration, rev(duration)), c(lwr, rev(upr)), border = NA, col = adjustcolor(col, .2))
-      lines(duration, fit, col = col)
-    })
-}
-```
-
-The plot showing points estimates with confidence intervals from the data
-together with the logistic regression prediction:
-
-```{r}
 plot(NA, xlim = c(0, 6), ylim = 0:1,
      xlab = "duration of treatment (months)",
      ylab = "proportion positive")
 
 walk2(treatments, 1:4, add_data)
-walk2(treatments, 1:4, add_model)
-#walk2(treatments[c(2, 3)], c(2, 3), add_model)
 ```
 
-## Another model
+## 4 A simple model of decay
 
+### 4.1 Within-individual exponential decay of CFU
+
+Let's assume that the CFU in an individual decays at a constant rate $\lmabda$.
+Then CFU as a function of time $t$ reads:
 
 $$
-N(t) = N_0 e^{-\lambda t}
+\mbox{CFU}(t) = \mbox{CFU}_0 e^{-\lambda t}
 $$
 
-A function that gives CFU as a function of inital CFU, decay rate and time:
+A function that gives CFU as a function of initial CFU$_0$, decay rate and time:
 
 ```{r}
-cfu <- function(N0, lambda, t) {
-  N0 * exp(- lambda * t)
+cfu <- function(cfu0, lambda, t) {
+  cfu0 * exp(- lambda * t)
 }
 ```
 
@@ -163,46 +145,18 @@ cfu(1e4, .115, 30)
 cfu(1e4, .115, c(30, 60))
 ```
 
-A reparameterization
+### 4.2 Inter-individual variability of decay rate
 
-```{r}
-rgamma2 <- function(n, mu, sigma) {
-  rgamma(n, mu^2 / sigma^2, scale = sigma^2 / mu)
-}
-```
-
-```{r}
-dgamma2 <- function(x, mu, sigma) {
-  dgamma(x, mu^2 / sigma^2, scale = sigma^2 / mu)
-}
-```
-
-```{r}
-pgamma2 <- function(q, mu, sigma) {
-  pgamma(q, mu^2 / sigma^2, scale = sigma^2 / mu)
-}
-```
-
-```{r}
-qgamma2 <- function(p, mu, sigma) {
-  qgamma(p, mu^2 / sigma^2, scale = sigma^2 / mu)
-}
-```
-
-```{r}
-cfu(1e4, qgamma2(.9, .115, .011), 30)
-```
-
-
-```{r}
-lambda <- .3
-sigma <- .011
-N0 <- 1e4
-epsilon <- 1e-16
-
-cfu(N0, qgamma2(epsilon, lambda, sigma), 30)
-cfu(N0, qgamma2(1 - epsilon, lambda, sigma), 30)
-```
+The next step is to consider that the rate of exponential decay varies slightly
+from individual to individual. Let's consider that this inter-individual
+variability follows a Gamma distribution. Next, we want to work out how this
+inter-individual variability translates into a proportion of individuals with at
+least 1 CFU in a population of an infinite number of individuals at time $t$.
+This is done looking at the cumulative probability of the Gamma distribution of
+the decay rate that leads to the quantile of the inter-individual CFU
+distribution that is the closest to 1. To do so, we need a function that
+expresses the distance of the quantile of the inter-individual CFU distribution
+to 1:
 
 ```{r}
 distance_to_1 <- function(p, lambda, sigma, N0, t) {
@@ -210,8 +164,11 @@ distance_to_1 <- function(p, lambda, sigma, N0, t) {
 }
 ```
 
-This function converts values for $\lambda$ and $\sigma$ to the probability
-parameter of a binomial distribution:
+We then use this function in the following function that converts values for
+$\lambda$ and $\sigma$ of the Gamma distribution of the inter-individual
+variability of exponential decay rate into the probability parameter of a
+binomial distribution that corresponds to the expected proportion of individuals
+in the population with CFU > 1:
 
 ```{r}
 probability <- function(lambda, sigma, N0, t, epsilon = 1e-16) {
@@ -238,177 +195,190 @@ plot(xs, map_dbl(xs, probability, sigma = .011, N0 = 1e4, t = 30, epsilon = 1e-1
      type = "l", col = 4, lwd = 3, xlab = "sigma", ylab = "probability")
 ```
 
-Minus log likelihood:
+
+## 5 Maximum-likelihood estimation of the model's parameters
+
+The first step consists in expressing a function that computes minus log
+likelihood:
 
 ```{r}
+threshold <- - log(1e-16)
+
 mLL <- function(lambda, sigma, N0, data, epsilon = 1e-16) {
-  - sum(dbinom(data$positive,
-               data$total,
-               map_dbl(data$duration, ~ probability(lambda, sigma, N0, .x * 30, epsilon)),
-               TRUE))
+  min(threshold,
+      - sum(dbinom(data$positive,
+                   data$total,
+                   map_dbl(data$duration, ~ probability(lambda, sigma, N0, .x * 30, epsilon)),
+                   TRUE)))
 }
 ```
 
 Let's try it:
 
 ```{r}
+mLL(lambda = .3, sigma = .011, N0 = 1e4, data = filter(table2, group == "RIF"), epsilon = 1e-16)
 mLL(lambda = .1, sigma = .011, N0 = 1e4, data = filter(table2, group == "RIF"), epsilon = 1e-16)
 ```
 
-```{r}
-f <- function(lambda = .1, sigma = .011, drug = "RIF", N0 = 1e4, epsilon = 1e-16) {
-  data <- filter(table2, group == drug)
-  mLL2 <- function(lambda, sigma) {
-    mLL(lambda, sigma, N0, data, epsilon)
-  }
-  mle2(mLL2, start = list(lambda = lambda, sigma = sigma))
-}
+### 5.1 Vizualization of the likelihood surface:
 
-f(lambda = .1, sigma = .011, drug = "RIF", N0 = 1e4, epsilon = 1e-16)
-```
+A function that vizualizes the likelihood surface:
 
 ```{r}
-
-```
-
-
-
-
-## Old code
-
-Let's try it:
-
-```{r}
-hist(rgamma2(1e4, .115, .011))
-```
-
-Let's try it combined with the CFU function:
-
-```{r}
-plot(NA, xlim = c(0, 6 * 30), ylim = c(0, 1e4))
-t_val <- seq(0, 6 * 30, le = 512)
-
-lambda_val <- rgamma2(10, .115, .011)
-
-map(lambda_val, ~ cfu(1e4, .x, t_val))
-```
-
-
-The log-likelihood function:
-
-```{r}
-LL <- function(mu, sigma, data, N0, lod, n) {
-  sum(
-    dbinom(
-      data$positive,
-      data$total,
-      sum(cfu(N0, rgamma2(n, exp(mu), exp(sigma)), 30 * data$duration) > lod) / n,
-      TRUE
-    )
-  )
-}
-```
-
-Let's vizulize it:
-
-```{r}
-dt <- filter(table2, group == "RIF")
-mu_val <- seq(.05, .3, le = 100)
-LL_val <- map_dbl(mu_val, ~ LL(.x , .01, dt, 1e4, 1, 1e6))
-plot(mu_val, LL_val)
-```
-
-The function that performs esimation:
-
-```{r}
-estimation <- function(drug, mu, sigma, N0, lod, n, ...) {
-  data <- filter(table2, group == drug)
-  mLL <- function(mu, sigma) {
-    -sum(
-      dbinom(
-        data$positive,
-        data$total,
-        sum(cfu(N0, rgamma2(n, exp(mu), exp(sigma)), 30 * data$duration) > lod) / n,
-        TRUE
-      )
-    )
-  }
-  mle2(mLL, list(mu = log(mu), sigma = log(sigma)), ...)
-}
-```
-
-A function that converts estimates into data for a curve:
-
-```{r}
-estimates2ci <- function(x) {
-  x |> 
-    coef() |> 
-    exp() |> 
-    as.list() |> 
-    with(rgamma2(10, mu, sigma)) |>
-    map_dfc(~ cfu(N0, .x, t)) |> 
-    t() |> 
-    as.data.frame() |> 
-    map_dfr(quantile, c(.025, .5, .975))
+show_mLL <- function(drug, lambda_val, sigma_val, N0 = 1e4, epsilon = 1e-16, ...) {
+  values <- expand.grid(lambda_val, sigma_val)
+  
+  mLL_val <- map2_dbl(values$Var1, values$Var2, mLL, N0 = N0,
+                      data = filter(table2, group == drug), epsilon = epsilon) |> 
+    matrix(length(lambda_val))
+  
+  image(lambda_val, sigma_val, mLL_val, xlab = "lambda", ylab = "sigma")
+  contour(lambda_val, sigma_val, mLL_val, add = TRUE, ...)
 }
 ```
 
 Let's try it:
 
 ```{r}
-system.time(estimates <- estimation("RIF", mu = .15, sigma = .01, 1e4, lod = 1, n = 1e6))
-estimates2ci(estimates)
+show_mLL("INH", seq(.001, .05, le = 100), seq(.0001, .012, le = 100), levels = c(.002, .01, .1))
+show_mLL("RIF", seq(.001, .2, le = 100), seq(.0001, .1, le = 100), levels = 1:5)
+show_mLL("RIF+INH", seq(.05, .15, le = 100), seq(.0001, .15, le = 100), levels = 1:5)
+show_mLL("RPT+INH", seq(.001, .5, le = 100), seq(.0001, .1, le = 100), levels = 1:5)
 ```
 
-Let's explore the quality of estimations:
+### 5.2 MLE using the BFGS quasi-Newton algorithm
+
+A function that performs estimations:
 
 ```{r}
-system.time(a1 <- replicate(10, estimation(treatments[1], mu = .05, sigma = .01, N0 = 1e4, lod = 1, n = 1e6, method = "Nelder-Mead")))
-b1 <- bind_cols(exp(map_dfr(a1, coef)), map_dbl(a1, logLik))
+estimations <- function(lambda, sigma, lower, upper, drug, N0 = 1e4, epsilon = 1e-16) {
+  data <- filter(table2, group == drug)
+  mle2(function(lambda, sigma) mLL(lambda, sigma, N0, data, epsilon),
+       list(lambda = lambda, sigma = sigma), "L-BFGS-B",
+       lower = lower, upper = upper)
+}
 ```
 
-```{r}
-system.time(a2 <- mclapply(1:11, function(x) estimation(treatments[2], mu = .15, sigma = .01, N0 = 1e4, lod = 1, n = 1e6, method = "Nelder-Mead"), mc.cores = 11))
-b2 <- bind_cols(exp(map_dfr(a2, coef)), map_dbl(a2, logLik), map_dbl(a2, ~ .x@details$convergence))
-```
+Let's try it:
 
 ```{r}
-a3 <- replicate(50, estimation(treatments[3], mu = .15, sigma = .01, 1e4, lod = 1, n = 1e4, method = "Nelder-Mead"))
-b3 <- bind_cols(exp(map_dfr(a3, coef)), map_dbl(a3, logLik))
-```
-
-```{r}
-a4 <- replicate(50, estimation(treatments[4], mu = .15, sigma = .01, 1e4, lod = 1, n = 1e4, method = "Nelder-Mead"))
-b4 <- bind_cols(exp(map_dfr(a4, coef)), map_dbl(a4, logLik))
-```
-
-
-
-```{r}
-arrange(b, ...3)[1, c("mu", "sigma")]
+est_RIF <- estimations(lambda = .08, sigma = .02,
+                       lower = c(lambda = .06, sigma = .01),
+                       upper = c(lambda = .09, sigma = .05),
+                       drug = "RIF")
 ```
 
 ```{r}
-estimation2 <- function(drug, mu0, sigma, N0, lod, n, nb) {
-  out <- replicate(nb, estimation(drug, mu0, sigma, N0, lod, n, method = "Nelder-Mead"))
-  out[[which.max(map_dbl(out, logLik))]]
+est_RIFINH <- estimations(lambda = .11, sigma = .04,
+                          lower = c(lambda = .09, sigma = .02),
+                          upper = c(lambda = .11, sigma = .05),
+                          drug = "RIF+INH")
+```
+
+```{r}
+est_RPTINH <- estimations(lambda = .3, sigma = .04,
+                          lower = c(lambda = .28, sigma = .01),
+                          upper = c(lambda = .32, sigma = .08),
+                          drug = "RPT+INH")
+```
+
+Which gives:
+
+```{r}
+coef(est_RIF)
+coef(est_RIFINH)
+coef(est_RPTINH)
+```
+
+### 5.3 Model predictions vizualization
+
+The following figure shows the estimated inter-individual variability of the
+exponential decay rate:
+
+```{r}
+x_max <- .45
+
+x_val <- seq(0, x_max, le = 512)
+add_lines <- function(x, col) {
+  lines(x_val, dgamma2(x_val, x["lambda"], x["sigma"]), lwd = 2, col = col)
 }
 
-estimation2(treatments[2], mu0 = .15, sigma = .01, N0 = 1e4, lod = 1, n = 1e4, nb = 50)
+plot(NA, xlim = c(0, x_max), ylim = c(0, 25),
+     xlab = "decay rate (/day)", ylab = "density of probability")
+
+add_lines(coef(est_RIF), 2)
+add_lines(coef(est_RIFINH), 3)
+add_lines(coef(est_RPTINH), 4)
 ```
 
-
-
-
+A function that adds model predictions to a plot:
 
 ```{r}
-points(arrange(b, ...3)[3, "mu"], arrange(b, ...3)[3, "sigma"], col = 4)
-
-points(mean(b$mu), mean(b$sigma), col = 4, pch = 3)
+add_pred <- function(x, col, t_max, alpha = .2, f = I) {
+  t_val <- seq(0, t_max, le = 512)
+  q050 <- f(cfu(1e4, qgamma2(.500, x["lambda"], x["sigma"]), t_val))
+  q025 <- f(cfu(1e4, qgamma2(.025, x["lambda"], x["sigma"]), t_val))
+  q975 <- f(cfu(1e4, qgamma2(.975, x["lambda"], x["sigma"]), t_val))
+  polygon(c(t_val, rev(t_val)), c(q025, rev(q975)), border = NA, col = adjustcolor(col, alpha))
+  lines(t_val, q050, col = col, lwd = 2)
+}
 ```
+
+The following figure shows the model-predicted expected proportions of
+individuals with CFU > 1 in the population:
 
 ```{r}
-b2 <- filter(b, sort(-...3 - min(-b[[3]])) < 1e-6)
-points(b2$mu, b2$sigma, col = 2)
+t_max <- 6 * 30
+
+plot(NA, xlim = c(0, t_max), ylim = c(0, 1e4), xlab = "time (days)", ylab = "CFU")
+
+add_pred(coef(est_RIF), 2, t_max)
+add_pred(coef(est_RIFINH), 3, t_max)
+add_pred(coef(est_RPTINH), 4, t_max)
 ```
+
+Same figure on a log scale:
+
+```{r}
+plot(NA, xlim = c(0, t_max), ylim = log10(c(1e-4, 1e4)), xlab = "time (days)", ylab = "CFU")
+
+add_pred(coef(est_RIF), 2, t_max, f = log10)
+add_pred(coef(est_RIFINH), 3, t_max, f = log10)
+add_pred(coef(est_RPTINH), 4, t_max, f = log10)
+
+abline(h = 0)
+```
+
+A function that adds model-predicted proportions of individual with CFU > 1 in 
+a population of 15 individuals:
+
+```{r}
+add_mod_pred <- function(x, col, alpha = .2) {
+  t_val <- seq(0, 6 * 30, le = 512)
+  p_val <- map_dbl(t_val, ~ probability(x["lambda"], x["sigma"], N0 = 1e4, t = .x, epsilon = 1e-16))
+  t_val <- t_val / 30
+  q025 <- qbinom(.025, 15, p_val) / 15
+  q975 <- qbinom(.975, 15, p_val) / 15
+  polygon(c(t_val, rev(t_val)), c(q025, rev(q975)), border = NA, col = adjustcolor(col, alpha))
+  lines(t_val, qbinom(.5, 15, p_val) / 15, col = col)
+}
+```
+
+Proportion of individuals with CFU > 1 as a function of time in a population of
+15 individuals:
+
+```{r}
+treatments <- unique(table2$group)
+
+plot(NA, xlim = c(0, 6), ylim = 0:1,
+     xlab = "duration of treatment (months)",
+     ylab = "proportion positive")
+
+walk2(treatments, 1:4, add_data)
+
+add_mod_pred(coef(est_RIF), 2)
+add_mod_pred(coef(est_RIFINH), 3)
+add_mod_pred(coef(est_RPTINH), 4)
+```
+
 
