@@ -23,6 +23,8 @@ latent tuberculosis infection.
 
 ## 1 Packages
 
+Loading the package needed for the analysis:
+
 ```{r}
 library(readxl)
 library(dplyr)
@@ -381,4 +383,93 @@ add_mod_pred(coef(est_RIFINH), 3)
 add_mod_pred(coef(est_RPTINH), 4)
 ```
 
+
+## 6 Speculating on effects in humans
+
+
+```{r}
+add_pred2 <- function(x, cfu0 = 1e4, col, t_max, alpha = .2, f = I) {
+  t_val <- seq(0, t_max, le = 512)
+  q050 <- f(cfu(cfu0, qgamma2(.500, x["lambda"], x["sigma"]), t_val))
+  q025 <- f(cfu(cfu0, qgamma2(.025, x["lambda"], x["sigma"]), t_val))
+  q975 <- f(cfu(cfu0, qgamma2(.975, x["lambda"], x["sigma"]), t_val))
+  polygon(c(t_val, rev(t_val)), c(q025, rev(q975)), border = NA, col = adjustcolor(col, alpha))
+  lines(t_val, q050, col = col, lwd = 2)
+}
+```
+
+```{r}
+CFU0_effect <- function(cfu0) {
+  plot(NA, xlim = c(0, t_max), ylim = log10(c(1e-4, 1e4)), xlab = "time (days)", ylab = "CFU")
+  
+  add_pred2(coef(est_RIF),    cfu0, 2, t_max, f = log10)
+  add_pred2(coef(est_RIFINH), cfu0, 3, t_max, f = log10)
+  add_pred2(coef(est_RPTINH), cfu0, 4, t_max, f = log10)
+  
+  abline(h = 0)
+}
+```
+
+```{r}
+CFU0_effect(1e4)
+CFU0_effect(1e3)
+CFU0_effect(1e2)
+```
+
+```{r}
+cfu1_time <- function(x, cfu0 = 1e4, p = .5) {
+  optimize(function(t) abs(log(cfu(cfu0, qgamma2(p, x["lambda"], x["sigma"]), t))), c(0, 200))$minimum
+}
+```
+
+Let's try it:
+
+```{r}
+cfu1_time(coef(est_RIF), cfu0 = 1e4, p = .5)
+cfu1_time(coef(est_RIF), cfu0 = 1e4, p = .025)
+cfu1_time(coef(est_RIF), cfu0 = 1e4, p = .975)
+```
+
+```{r}
+CFU0_effect_cfu1_time <- function(x, cfu0 = 1e4) {
+  cfu1_time(coef(est_RIF), cfu0 = 1e4, p = .5)
+  cfu1_time(coef(est_RIF), cfu0 = 1e4, p = .025)
+  cfu1_time(coef(est_RIF), cfu0 = 1e4, p = .975)
+}
+```
+
+```{r}
+f <- function(x, cfu0) {
+  map_dfc(c(upper = .025, median = .5, lower = .975), cfu1_time, x = x, cfu0 = cfu0)
+}
+```
+
+Let's try it:
+
+```{r}
+f(coef(est_RIF), 1e4)
+```
+
+```{r}
+cfu0_val <- seq(1e2, 1e4, le = 512)
+out <- map_dfr(cfu0_val, f, x = coef(est_RIF))
+```
+
+```{r}
+add_speculation1 <- function(x, col, alpha = .2) {
+  cfu0_val <- 10^seq(2, 4, le = 512)
+  out <- map_dfr(cfu0_val, f, x = coef(x))
+  polygon(c(cfu0_val, rev(cfu0_val)), c(out$upper, rev(out$lower)),
+          border = NA, col = adjustcolor(col, .2))
+  lines(cfu0_val, out$median, col = col, lwd = 3)
+}
+```
+
+```{r}
+plot(NA, xlim = 10^c(2, 4), ylim = c(0, 200), log = "x",
+     xlab = "initial CFU", ylab = "time of clearance (days)")
+add_speculation1(est_RIF, 2)
+add_speculation1(est_RIFINH, 3)
+add_speculation1(est_RPTINH, 4)
+```
 
