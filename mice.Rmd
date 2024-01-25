@@ -21,16 +21,28 @@ latent tuberculosis infection.
 *American Journal of Respiratory and Critical Care Medicine* 184.6 (2011): 732-737.
 [10.1164/rccm.201103-0397OC](https://doi.org/10.1164/rccm.201103-0397oc)
 
+The data show the proportion of positive mice as a function of time. What we are
+interested in is the CFU clearance dynamics at the individual level. Since the
+former is a consequence of the latter, we develop a simple model of CFU
+clearance at the individual level from which we compute the consequences at
+(small-size) population level. By confronting the model-predicted consequences
+at population level with actual experimental data, we are able to estimate the
+two parameters of the model. Once the model calibration is done, we can use the
+model to explore what would be the effect of decreasing the initial value of CFU
+on the time at which the individual clear the infection.
+
+The model itself is a simple exponential decay model with inter-individual
+variability on the rate of decay that is modelled by a Gamma distribution.
+
 ## 1 Packages
 
-Loading the package needed for the analysis:
+Loading the packages needed for the analysis:
 
 ```{r}
 library(readxl)
 library(dplyr)
 library(purrr)
 library(tidyr)
-library(parallel)
 library(bbmle)
 ```
 
@@ -84,6 +96,9 @@ table2
 
 Preparing the data for vizualization:
 
+* jittering the duration variable slightly in order to avoid visual overlap)
+* computing the proportions of positive mice with 95% confidence intervals
+
 ```{r}
 table2a <- table2 |>
   add_prop_est(positive, total) |> 
@@ -98,34 +113,38 @@ table2a
 
 A function that adds proportion estimates and confidence intervals to a plot:
 
-```{r}
+```{r add_data}
 add_data <- function(x, col) {
   table2a |> 
     filter(group == x) |> 
     with({
-      points(duration, est, col = col)
+      points(duration, est, col = col, type = "o")
       arrows(duration, lwr, duration, upr, .1, 90, 3, col)
+      lines(duration, lwr, lty = 2, col = col)
+      lines(duration, upr, lty = 2, col = col)
     })
 }
 ```
 
 The plot showing points estimates with confidence intervals from the data:
 
-```{r}
+```{r dependson = "add_data"}
 treatments <- unique(table2$group)
 
 plot(NA, xlim = c(0, 6), ylim = 0:1,
      xlab = "duration of treatment (months)",
-     ylab = "proportion positive")
+     ylab = "proportion of positive mice")
 
 walk2(treatments, 1:4, add_data)
+
+legend("bottomright", legend = treatments, col = 1:4, lwd = 1, bty = "n")
 ```
 
 ## 4 A simple model of decay
 
 ### 4.1 Within-individual exponential decay of CFU
 
-Let's assume that the CFU in an individual decays at a constant rate $\lmabda$.
+Let's assume that the CFU in an individual decays at a constant rate $\lambda$.
 Then CFU as a function of time $t$ reads:
 
 $$
