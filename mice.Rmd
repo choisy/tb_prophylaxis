@@ -11,25 +11,27 @@ editor_options:
 knitr::opts_chunk$set(echo    = TRUE,
                       message = FALSE,
                       cache   = TRUE)
+
+setHook("plot.new", function() par(mgp = c(1.5, .5, 0), bty = "n"), "prepend")
 ```
 
-
-Looking at data from
+Here we are working on the data from
 Zhang *et al.*
 Short-course chemotherapy with TMC207 and rifapentine in a murine model of
 latent tuberculosis infection.
 *American Journal of Respiratory and Critical Care Medicine* 184.6 (2011): 732-737.
 [10.1164/rccm.201103-0397OC](https://doi.org/10.1164/rccm.201103-0397oc)
 
-The data show the proportion of positive mice as a function of time. What we are
-interested in is the CFU clearance dynamics at the individual level. Since the
-former is a consequence of the latter, we develop a simple model of CFU
-clearance at the individual level from which we compute the consequences at
-(small-size) population level. By confronting the model-predicted consequences
-at population level with actual experimental data, we are able to estimate the
-two parameters of the model. Once the model calibration is done, we can use the
-model to explore what would be the effect of decreasing the initial value of CFU
-on the time at which the individual clear the infection.
+The data show the proportion of positive mice as a function of time (about 15
+mice per time point and treatment) but we are interested in is the CFU
+clearance dynamics at the individual level. Since the former is a consequence of
+the latter, we develop a simple model of CFU clearance at the individual level
+from which we compute the consequences at (small-size) population level. By
+confronting the model-predicted consequences at population level with actual
+experimental data, we are able to estimate the two parameters of the model. Once
+the model is calibrated, we can use it to explore what would be the effect of
+decreasing the initial value of CFU on the time at which the individual clear
+the infection.
 
 The model itself is a simple exponential decay model with inter-individual
 variability on the rate of decay that is modelled by a Gamma distribution.
@@ -79,6 +81,12 @@ qgamma2 <- function(p, mu, sigma) {
 }
 ```
 
+Tuning `abline()`:
+
+```{r}
+abline2 <- function(...) abline(..., col = "lightgrey")
+```
+
 
 ## 3 The data
 
@@ -96,7 +104,7 @@ table2
 
 Preparing the data for vizualization:
 
-* jittering the duration variable slightly in order to avoid visual overlap)
+* jittering the duration variable slightly in order to avoid visual overlap
 * computing the proportions of positive mice with 95% confidence intervals
 
 ```{r}
@@ -114,14 +122,16 @@ table2a
 A function that adds proportion estimates and confidence intervals to a plot:
 
 ```{r add_data}
-add_data <- function(x, col) {
+add_data <- function(x, col, connect = TRUE) {
   table2a |> 
     filter(group == x) |> 
     with({
-      points(duration, est, col = col, type = "o")
+      points(duration, est, col = col, type = ifelse(connect, "o", "p"))
       arrows(duration, lwr, duration, upr, .1, 90, 3, col)
-      lines(duration, lwr, lty = 2, col = col)
-      lines(duration, upr, lty = 2, col = col)
+      if (connect) {
+        lines(duration, lwr, lty = 2, col = col)
+        lines(duration, upr, lty = 2, col = col)
+      }
     })
 }
 ```
@@ -171,10 +181,10 @@ cfu(1e4, .115, c(30, 60))
 The next step is to consider that the rate of exponential decay varies slightly
 from individual to individual. Let's consider that this inter-individual
 variability follows a Gamma distribution. Next, we want to work out how this
-inter-individual variability translates into a proportion of individuals with at
-least 1 CFU in a population of an infinite number of individuals at time $t$.
-This is done looking at the cumulative probability of the Gamma distribution of
-the decay rate that leads to the quantile of the inter-individual CFU
+inter-individual variability translates into a proportion of positive
+individuals in a population of an infinite number of individuals at time $t$.
+This is done by looking at the cumulative probability of the Gamma distribution
+of the decay rate that leads to the quantile of the inter-individual CFU
 distribution that is the closest to 1. To do so, we need a function that
 expresses the distance of the quantile of the inter-individual CFU distribution
 to 1:
@@ -188,8 +198,8 @@ distance_to_1 <- function(p, lambda, sigma, N0, t) {
 We then use this function in the following function that converts values for
 $\lambda$ and $\sigma$ of the Gamma distribution of the inter-individual
 variability of exponential decay rate into the probability parameter of a
-binomial distribution that corresponds to the expected proportion of individuals
-in the population with CFU > 1:
+binomial distribution that corresponds to the expected proportion of positive
+individuals in the population:
 
 ```{r}
 probability <- function(lambda, sigma, N0, t, epsilon = 1e-16) {
@@ -213,7 +223,10 @@ Let's try it:
 ```{r}
 xs <- seq(.1, .5, le = 512)
 plot(xs, map_dbl(xs, probability, sigma = .011, N0 = 1e4, t = 30, epsilon = 1e-16),
-     type = "l", col = 4, lwd = 3, xlab = "sigma", ylab = "probability")
+     type = "l", col = 4, lwd = 3,
+     main = expression(paste("inter-individual variability ", sigma, " = 0.011")),
+     xlab = "within-host mean decay rate (/day)",
+     ylab = "proportion of positive in the population")
 ```
 
 
@@ -238,14 +251,14 @@ Let's try it:
 
 ```{r}
 mLL(lambda = .3, sigma = .011, N0 = 1e4, data = filter(table2, group == "RIF"), epsilon = 1e-16)
-mLL(lambda = .1, sigma = .011, N0 = 1e4, data = filter(table2, group == "RIF"), epsilon = 1e-16)
 ```
 
 ### 5.1 Vizualization of the likelihood surface:
 
-A function that vizualizes the likelihood surface:
+Since we have only 2 parameters, we can easily have a look at the likelihood
+surface. A function that vizualizes the likelihood surface:
 
-```{r}
+```{r show_mLL}
 show_mLL <- function(drug, lambda_val, sigma_val, N0 = 1e4, epsilon = 1e-16, ...) {
   values <- expand.grid(lambda_val, sigma_val)
   
@@ -255,12 +268,13 @@ show_mLL <- function(drug, lambda_val, sigma_val, N0 = 1e4, epsilon = 1e-16, ...
   
   image(lambda_val, sigma_val, mLL_val, xlab = "lambda", ylab = "sigma")
   contour(lambda_val, sigma_val, mLL_val, add = TRUE, ...)
+  box(bty = "o")
 }
 ```
 
 Let's try it:
 
-```{r}
+```{r dependson = "show_mLL"}
 show_mLL("INH", seq(.001, .05, le = 100), seq(.0001, .012, le = 100), levels = c(.002, .01, .1))
 show_mLL("RIF", seq(.001, .2, le = 100), seq(.0001, .1, le = 100), levels = 1:5)
 show_mLL("RIF+INH", seq(.05, .15, le = 100), seq(.0001, .15, le = 100), levels = 1:5)
@@ -280,23 +294,19 @@ estimations <- function(lambda, sigma, lower, upper, drug, N0 = 1e4, epsilon = 1
 }
 ```
 
-Let's try it:
+Let's use it:
 
-```{r}
+```{r warning = FALSE}
 est_RIF <- estimations(lambda = .08, sigma = .02,
                        lower = c(lambda = .06, sigma = .01),
                        upper = c(lambda = .09, sigma = .05),
                        drug = "RIF")
-```
 
-```{r}
 est_RIFINH <- estimations(lambda = .11, sigma = .04,
                           lower = c(lambda = .09, sigma = .02),
                           upper = c(lambda = .11, sigma = .05),
                           drug = "RIF+INH")
-```
 
-```{r}
 est_RPTINH <- estimations(lambda = .3, sigma = .04,
                           lower = c(lambda = .28, sigma = .01),
                           upper = c(lambda = .32, sigma = .08),
@@ -311,7 +321,7 @@ coef(est_RIFINH)
 coef(est_RPTINH)
 ```
 
-### 5.3 Model predictions vizualization
+### 5.3 Vizualizaiton of model predictions
 
 The following figure shows the estimated inter-individual variability of the
 exponential decay rate:
@@ -330,44 +340,79 @@ plot(NA, xlim = c(0, x_max), ylim = c(0, 25),
 add_lines(coef(est_RIF), 2)
 add_lines(coef(est_RIFINH), 3)
 add_lines(coef(est_RPTINH), 4)
+
+legend("topright", legend = treatments[-1], col = 2:4, lwd = 2, bty = "n")
 ```
 
 A function that adds model predictions to a plot:
 
-```{r}
-add_pred <- function(x, col, t_max, alpha = .2, f = I) {
+```{r add_pred}
+add_pred <- function(x, col, t_max, cfu0 = 1e4, alpha = .2, aggregation = 7) {
   t_val <- seq(0, t_max, le = 512)
-  q050 <- f(cfu(1e4, qgamma2(.500, x["lambda"], x["sigma"]), t_val))
-  q025 <- f(cfu(1e4, qgamma2(.025, x["lambda"], x["sigma"]), t_val))
-  q975 <- f(cfu(1e4, qgamma2(.975, x["lambda"], x["sigma"]), t_val))
-  polygon(c(t_val, rev(t_val)), c(q025, rev(q975)), border = NA, col = adjustcolor(col, alpha))
+  q050 <- cfu(cfu0, qgamma2(.500, x["lambda"], x["sigma"]), t_val)
+  q025 <- cfu(cfu0, qgamma2(.025, x["lambda"], x["sigma"]), t_val)
+  q975 <- cfu(cfu0, qgamma2(.975, x["lambda"], x["sigma"]), t_val)
+  t_val <- t_val / aggregation
+  polygon(c(t_val, rev(t_val)), c(q025, rev(q975)), border = NA,
+          col = adjustcolor(col, alpha))
   lines(t_val, q050, col = col, lwd = 2)
 }
 ```
 
-The following figure shows the model-predicted expected proportions of
-individuals with CFU > 1 in the population:
+The following figure shows the model-predicted expected proportions of positive
+individuals in the population:
 
-```{r}
-t_max <- 6 * 30
+```{r dependson = "add_pred"}
+t_max <- 6 * 30 # in days
+
+plot(NA, xlim = c(0, t_max / 7), ylim = c(0, 1e4), xlab = "time (weeks)", ylab = "CFU")
+
+abline2(v = 0:25)
+abline2(h = 0:10 * 1e3)
+
+add_pred(coef(est_RIF),    2, t_max)
+add_pred(coef(est_RIFINH), 3, t_max)
+add_pred(coef(est_RPTINH), 4, t_max)
+
+legend("topright", legend = treatments[-1], col = 2:4, lwd = 2)
+```
+
+The same plot over a month:
+
+```{r dependson = "add_pred"}
+t_max <- 30 # in days
 
 plot(NA, xlim = c(0, t_max), ylim = c(0, 1e4), xlab = "time (days)", ylab = "CFU")
 
-add_pred(coef(est_RIF), 2, t_max)
-add_pred(coef(est_RIFINH), 3, t_max)
-add_pred(coef(est_RPTINH), 4, t_max)
+abline2(v = 0:30)
+abline2(h = 0:10 * 1e3)
+
+add_pred(coef(est_RIF),    2, t_max, aggregation = 1)
+add_pred(coef(est_RIFINH), 3, t_max, aggregation = 1)
+add_pred(coef(est_RPTINH), 4, t_max, aggregation = 1)
+
+legend("topright", legend = treatments[-1], col = 2:4, lwd = 2)
 ```
 
 Same figure on a log scale:
 
-```{r}
-plot(NA, xlim = c(0, t_max), ylim = log10(c(1e-4, 1e4)), xlab = "time (days)", ylab = "CFU")
+```{r dependson = "add_pred"}
+t_max <- 6 * 30 # in days
 
-add_pred(coef(est_RIF), 2, t_max, f = log10)
-add_pred(coef(est_RIFINH), 3, t_max, f = log10)
-add_pred(coef(est_RPTINH), 4, t_max, f = log10)
+plot(NA, xlim = c(0, t_max / 7), ylim = c(1, 1e4), xlab = "time (weeks)", ylab = "CFU", log = "y")
 
-abline(h = 0)
+abline2(h = 1:10 * 1e3)
+abline2(h = 1:10 * 1e2)
+abline2(h = 1:10 * 10)
+abline2(h = 2:10)
+abline2(v = 0:30)
+abline(h = 1)
+
+add_pred(coef(est_RIF),    2, t_max)
+add_pred(coef(est_RIFINH), 3, t_max)
+add_pred(coef(est_RPTINH), 4, t_max)
+
+legend("topright", legend = treatments[-1], col = 2:4, lwd = 2)
 ```
 
 A function that adds model-predicted proportions of individual with CFU > 1 in 
@@ -388,18 +433,19 @@ add_mod_pred <- function(x, col, alpha = .2) {
 Proportion of individuals with CFU > 1 as a function of time in a population of
 15 individuals:
 
-```{r}
-treatments <- unique(table2$group)
-
+```{r dependson = "add_data"}
 plot(NA, xlim = c(0, 6), ylim = 0:1,
      xlab = "duration of treatment (months)",
      ylab = "proportion positive")
 
-walk2(treatments, 1:4, add_data)
+walk2(treatments, 1:4, add_data, connect = FALSE)
 
 add_mod_pred(coef(est_RIF), 2)
 add_mod_pred(coef(est_RIFINH), 3)
 add_mod_pred(coef(est_RPTINH), 4)
+
+
+legend("topright", legend = treatments[-1], col = 2:4, lwd = 2)
 ```
 
 
@@ -417,22 +463,41 @@ add_pred2 <- function(x, cfu0 = 1e4, col, t_max, alpha = .2, f = I) {
 }
 ```
 
-```{r}
+```{r CFU0_effect, dependson = "add_pred"}
 CFU0_effect <- function(cfu0) {
-  plot(NA, xlim = c(0, t_max), ylim = log10(c(1e-4, 1e4)), xlab = "time (days)", ylab = "CFU")
+  t_max <- 6 * 30
   
-  add_pred2(coef(est_RIF),    cfu0, 2, t_max, f = log10)
-  add_pred2(coef(est_RIFINH), cfu0, 3, t_max, f = log10)
-  add_pred2(coef(est_RPTINH), cfu0, 4, t_max, f = log10)
+  plot(NA, xlim = c(0, t_max / 7), ylim = c(1, 1e4), xlab = "time (weeks)", ylab = "CFU", log = "y")
   
-  abline(h = 0)
+  abline2(h = 1:10 * 1e3)
+  abline2(h = 1:10 * 1e2)
+  abline2(h = 1:10 * 10)
+  abline2(h = 2:10)
+  abline2(v = 0:30)
+  abline(h = 1)
+  
+  add_pred(coef(est_RIF),    2, t_max, cfu0)
+  add_pred(coef(est_RIFINH), 3, t_max, cfu0)
+  add_pred(coef(est_RPTINH), 4, t_max, cfu0)
+
+  legend("topright", legend = treatments[-1], col = 2:4, lwd = 2)
 }
 ```
 
-```{r}
+```{r hook2, include = FALSE}
+setHook("plot.new", function() par(mgp = c(4, 1, 0), bty = "n"), "prepend")
+```
+
+```{r dependson = "hook2", dependson = "CFU0_effect", fig.height = 3.1, fig.width = 6 * 1.4}
+opar <- par(mfrow = c(1, 3), cex.axis = 1.5, cex.lab = 1.5)
 CFU0_effect(1e4)
 CFU0_effect(1e3)
 CFU0_effect(1e2)
+par(opar)
+```
+
+```{r include = FALSE}
+setHook("plot.new", function() par(mgp = c(1.5, .5, 0), bty = "n"), "prepend")
 ```
 
 ```{r}
